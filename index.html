@@ -44,7 +44,7 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
             background: var(--card);
             padding: 30px;
@@ -61,11 +61,11 @@
             font-weight: bold;
             display: block;
             margin-top: 20px;
-            cursor: help;
         }
 
         textarea,
-        .teca-input {
+        .teca-input,
+        select {
             width: 100%;
             box-sizing: border-box;
             padding: 12px;
@@ -121,40 +121,40 @@
         <div id="tela-intro" class="container">
             <h1>Laboratório de Investigação da Professora Teca</h1>
 
-            <p>Atenção, pesquisadora! Você acaba de entrar no meu Laboratório de Curiosidades. ✨
-                Aqui, não aceitamos 'eu acho' sem provas! Vamos usar o Método Científico: o mapa mais incrível já
-                inventado para separar fatos sólidos de opiniões barulhentas. Pense nele como uma receita de bolo para a
-                verdade: se você seguir os passos (Observar, Perguntar, Testar), o resultado é conhecimento puro!
-                Dica da Teca: Se encontrar alguma palavra difícil que pareça 'grego', é só selecionar ela com o dedo ou
-                o mouse. Eu vasculho meus arquivos e te explico num piscar de olhos!
-                Pronta para fazer história? Vamos começar!</p>
+            <p>
+                Atenção, pesquisadora! Você acaba de entrar no meu Laboratório de Curiosidades. ✨
+                Aqui, não aceitamos “eu acho” sem provas! Vamos usar o Método Científico:
+                observar, perguntar, pensar, testar e concluir.
+            </p>
 
-            <p>Ao lado, sua <strong>IA de Suporte</strong> explicará termos complexos. Basta selecionar qualquer palavra
-                com o mouse ou o dedo.</p>
+            <p>
+                Ao lado, sua <strong>IA de Suporte</strong> explicará termos complexos.
+                Basta selecionar qualquer palavra ou frase.
+            </p>
 
             <button onclick="irPara('tela-lab')">Iniciar Protocolo</button>
         </div>
 
         <div id="tela-lab" class="container hidden">
-            <select id="tema" style="width:100%; padding:10px; background:#010409; color:white; border-radius:8px;">
-                <option value="psicologia">Psicologia (Comportamento)</option>
-                <option value="astronomia">Astronomia (Cosmos)</option>
-                <option value="quimica">Química (Matéria)</option>
+
+            <select id="tema" onchange="iniciarFluxo()">
+                <option value="">Escolha um tema</option>
+                <option value="psicologia">Psicologia (Autoanálise)</option>
+                <option value="astronomia">Astronomia</option>
+                <option value="biologia">Biologia</option>
+                <option value="matematica">Matemática</option>
+                <option value="politica">Política</option>
+                <option value="brasil">Conhecimentos do Brasil</option>
+                <option value="fisica">Física</option>
             </select>
 
-            <span class="step-label" onclick="explicar('obs')">1. Observação</span>
-            <textarea id="campo-obs" rows="3" placeholder="O que seus sentidos captam?"></textarea>
+            <div id="fluxo"></div>
 
-            <span class="step-label" onclick="explicar('hip')">2. Hipótese</span>
-            <textarea id="campo-hip" rows="3" placeholder="Qual a sua teoria inicial?"></textarea>
+            <button id="btn-save" class="hidden" onclick="salvar()">Finalizar Relatório</button>
 
-            <span class="step-label" onclick="explicar('con')">3. Conclusão</span>
-            <textarea id="campo-con" rows="4" placeholder="O que os dados provaram?"></textarea>
-
-            <button id="btn-save" onclick="salvar()">Finalizar Relatório</button>
         </div>
 
-        <div id="tela-admin" class="container hidden" style="max-width: 800px;">
+        <div id="tela-admin" class="container hidden" style="max-width: 850px;">
             <h2>Dashboard do Supervisor</h2>
             <div id="admin-content"></div>
             <button onclick="location.href='index.html'">Sair do Admin</button>
@@ -171,7 +171,7 @@
         <div id="ai-status">⚙️ Teca está folheando os livros...</div>
 
         <div id="side-conteudo" class="explanation-text">
-            Selecione uma palavra e eu te explico num piscar de olhos!
+            Selecione uma palavra ou frase e eu explico.
         </div>
     </div>
 
@@ -181,7 +181,6 @@
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
         let nomeTeca = sessionStorage.getItem('nomeTeca') || '';
-
         const inputNomeTeca = document.getElementById('nome-teca');
         if (inputNomeTeca) inputNomeTeca.value = nomeTeca;
 
@@ -195,24 +194,118 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
-        if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
-            irPara('tela-admin');
-            carregarAdmin();
+        const perguntasPorTema = {
+            psicologia: [
+                "O que você sentiu hoje que mais te marcou?",
+                "Por que você acha que sentiu isso?",
+                "O que você poderia fazer diferente na próxima vez?",
+                "O que você aprendeu sobre você mesma?"
+            ],
+            astronomia: [
+                "O que você sabe sobre o espaço, planetas ou estrelas?",
+                "Por que existe dia e noite?",
+                "O que você acha mais curioso no universo?",
+                "Que pergunta você faria para uma cientista da NASA?"
+            ],
+            biologia: [
+                "O que você sabe sobre seres vivos?",
+                "Por que precisamos comer, beber água e dormir?",
+                "O que mais te chama atenção nos animais, plantas ou corpo humano?",
+                "Que parte da vida você gostaria de entender melhor?"
+            ],
+            matematica: [
+                "Onde você usa matemática no dia a dia?",
+                "Como você tenta resolver um problema difícil?",
+                "O que você acha mais difícil em matemática?",
+                "Como a matemática poderia ser mais divertida?"
+            ],
+            politica: [
+                "O que você entende por regras em sociedade?",
+                "Por que existem leis?",
+                "O que é justiça pra você?",
+                "O que você mudaria na sua cidade se pudesse?"
+            ],
+            brasil: [
+                "O que você mais gosta no Brasil?",
+                "Que cultura, comida, música ou tradição brasileira você conhece?",
+                "Por que o Brasil é um país tão diverso?",
+                "O que você mudaria no Brasil se pudesse?"
+            ],
+            fisica: [
+                "Onde você vê movimento no dia a dia?",
+                "O que faz algo cair no chão?",
+                "Onde você percebe força, velocidade ou energia?",
+                "Que fenômeno da natureza você gostaria de entender?"
+            ]
+        };
+
+        let etapa = 0;
+        let respostas = [];
+        let temaAtual = "";
+
+        function iniciarFluxo() {
+            temaAtual = document.getElementById("tema").value;
+            etapa = 0;
+            respostas = [];
+
+            document.getElementById("btn-save").classList.add("hidden");
+
+            if (!temaAtual) {
+                document.getElementById("fluxo").innerHTML = "";
+                return;
+            }
+
+            mostrarPergunta();
         }
 
-        async function carregarAdmin() {
-            const { data } = await _supabase
-                .from('relatorios_cientificos')
-                .select('*')
-                .order('created_at', { ascending: false });
+        function mostrarPergunta() {
+            const pergunta = perguntasPorTema[temaAtual][etapa];
 
-            document.getElementById('admin-content').innerHTML = (data || []).map(r => `
+            document.getElementById("fluxo").innerHTML = `
+        <span class="step-label">Pergunta ${etapa + 1} de ${perguntasPorTema[temaAtual].length}</span>
+        <p>${pergunta}</p>
+        <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta"></textarea>
+        <button type="button" onclick="proximaPergunta()">Próxima</button>
+      `;
+        }
+
+        function proximaPergunta() {
+            const resposta = document.getElementById("respostaAtual").value.trim();
+
+            if (!resposta) {
+                alert("Responda antes de continuar.");
+                return;
+            }
+
+            respostas.push({
+                pergunta: perguntasPorTema[temaAtual][etapa],
+                resposta
+            });
+
+            etapa++;
+
+            if (etapa < perguntasPorTema[temaAtual].length) {
+                mostrarPergunta();
+            } else {
+                finalizarFluxo();
+            }
+        }
+
+        function finalizarFluxo() {
+            const resumo = respostas.map((r, i) => `
         <div class="admin-row">
-          <strong>${new Date(r.created_at).toLocaleDateString()} - ${r.area}</strong><br>
-          <em>Obs:</em> ${r.observacao}<br>
-          <em>Concl:</em> ${r.conclusao}
+          <strong>${i + 1}. ${r.pergunta}</strong><br>
+          ${r.resposta}
         </div>
       `).join('');
+
+            document.getElementById("fluxo").innerHTML = `
+        <h3>Relatório pronto</h3>
+        <p>Você respondeu todas as perguntas. Revise e envie.</p>
+        ${resumo}
+      `;
+
+            document.getElementById("btn-save").classList.remove("hidden");
         }
 
         async function falarComIA(prompt) {
@@ -232,12 +325,27 @@
                 const data = await res.json();
 
                 if (data.error) {
-                    conteudo.innerText = 'A Teca está procurando nos Bibliotecando...';
+                    conteudo.innerText = 'A Teca tropeçou nos livros. Tente de novo.';
                     console.error('Erro da API:', data.error);
                     return;
                 }
 
-                conteudo.innerText = data.result || 'Não consegui processar essa explicação.';
+                if (data.result) {
+                    conteudo.innerText = data.result;
+
+                    const historico = JSON.parse(localStorage.getItem('teca_logs') || '[]');
+
+                    historico.push({
+                        nome: nomeTeca || 'anônimo',
+                        pergunta: prompt,
+                        resposta: data.result,
+                        data: new Date().toISOString()
+                    });
+
+                    localStorage.setItem('teca_logs', JSON.stringify(historico));
+                } else {
+                    conteudo.innerText = 'Não consegui processar essa explicação.';
+                }
             } catch (e) {
                 conteudo.innerText = 'Erro de conexão com o laboratório central.';
                 console.error(e);
@@ -249,32 +357,30 @@
         function analisarSelecao() {
             const sel = window.getSelection().toString().trim();
 
-            if (sel.length > 3 && sel.length < 30) {
-                falarComIA(`Explique o conceito científico de "${sel}" para um estudante.`);
+            if (sel.length > 1 && sel.length < 120) {
+                falarComIA(`Explique de forma correta e simples: "${sel}"`);
             }
-        }
-
-        function explicar(tipo) {
-            const dicas = {
-                obs: 'Explique como a observação fenomenológica elimina preconceitos.',
-                hip: 'Explique o que é o falseamento de uma hipótese segundo Karl Popper.',
-                con: 'Explique a diferença entre correlação e causalidade.'
-            };
-
-            falarComIA(dicas[tipo]);
         }
 
         async function salvar() {
             const btn = document.getElementById('btn-save');
 
+            if (!temaAtual || respostas.length === 0) {
+                alert('Escolha um tema e responda as perguntas.');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerText = 'Sincronizando...';
 
             const dados = {
-                area: document.getElementById('tema').value,
-                observacao: document.getElementById('campo-obs').value,
-                hipotese: document.getElementById('campo-hip').value,
-                conclusao: document.getElementById('campo-con').value
+                area: temaAtual,
+                observacao: respostas[0]?.resposta || '',
+                hipotese: respostas[1]?.resposta || '',
+                conclusao: respostas
+                    .slice(2)
+                    .map(r => `${r.pergunta} ${r.resposta}`)
+                    .join(' | ')
             };
 
             const { error } = await _supabase
@@ -282,13 +388,54 @@
                 .insert([dados]);
 
             if (!error) {
-                alert('Protocolo Enviado!');
+                alert('Protocolo enviado!');
                 location.reload();
             } else {
                 alert('Erro: ' + error.message);
                 btn.disabled = false;
                 btn.innerText = 'Finalizar Relatório';
             }
+        }
+
+        async function carregarAdmin() {
+            const { data } = await _supabase
+                .from('relatorios_cientificos')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            const relatorios = (data || []).map(r => `
+        <div class="admin-row">
+          <strong>${new Date(r.created_at).toLocaleString()} - ${r.area}</strong><br>
+          <em>Observação:</em> ${r.observacao}<br>
+          <em>Hipótese:</em> ${r.hipotese}<br>
+          <em>Conclusão:</em> ${r.conclusao}
+        </div>
+      `).join('');
+
+            const logs = JSON.parse(localStorage.getItem('teca_logs') || '[]');
+
+            const blocoIA = logs.length
+                ? logs.map(l => `
+          <div class="admin-row">
+            <strong>${l.nome}</strong> - ${new Date(l.data).toLocaleString()}<br>
+            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+            <em>Resposta:</em> ${l.resposta}
+          </div>
+        `).join('')
+                : '<p>Nenhuma interação registrada nesta sessão/navegador.</p>';
+
+            document.getElementById('admin-content').innerHTML = `
+        <h3>Relatórios enviados</h3>
+        ${relatorios || '<p>Nenhum relatório encontrado.</p>'}
+
+        <h3 style="margin-top:30px;">Interações com a Professora Teca</h3>
+        ${blocoIA}
+      `;
+        }
+
+        if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
+            irPara('tela-admin');
+            carregarAdmin();
         }
     </script>
 
