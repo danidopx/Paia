@@ -1,79 +1,76 @@
-const MODELOS_FALLBACK = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro'
-];
-
-function esperar(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+async function buscarModelosAtivos(apiKey) {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const data = await res.json();
+    return data.models
+      .filter(m => m.supportedGenerationMethods.includes('generateContent'))
+      .map(m => m.name.replace('models/', ''))
+      .sort((a, b) => b.localeCompare(a));
+  } catch (e) {
+    return ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  }
 }
 
 async function chamarGemini({ prompt, modelo, apiKey }) {
-  // Prompt de sistema para garantir o comportamento que você pediu
-  const promptSistema = `Aja como um mentor científico para uma jovem. 
-    Responda em no máximo 200 caracteres. 
-    Ao final, obrigatoriamente adicione: "Saiba mais: https://www.google.com/search?q=${encodeURIComponent(prompt)}"
-    Explique de forma clara: ${prompt}`;
+  // PERSONALIDADE DA TECA: Mentora de biblioteca, engraçada e genial
+  const promptSistema = `Aja como a "Professora Teca" (abreviação de biblioteca). 
+    Você é uma mentora nerd, engraçadinha e apaixonada por livros e ciência.
+    
+    INSTRUÇÕES DE RESPOSTA:
+    1. Comece ou termine com uma brincadeira sobre o termo (ex: "Isso é mais raro que livro devolvido no prazo!" ou "Minhas estantes até tremeram com esse conceito!").
+    2. Explique o conceito de forma genial para uma jovem.
+    3. Máximo 200 caracteres.
+    4. Use emojis como 📚, 🧪, 💡.
+    5. No final, coloque o link: https://www.google.com/search?q=${encodeURIComponent(prompt)}
+
+    Termo para explicar: ${prompt}`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: promptSistema }] }]
+      contents: [{ parts: [{ text: promptSistema }] }],
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" }
+      ]
     })
   });
 
-  let corpo = null;
-  try {
-    corpo = await response.text();
-  } catch {
-    corpo = '';
-  }
-
+  const corpo = await response.text();
   return { response, corpo };
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
-  const { prompt, modelo = 'gemini-1.5-flash' } = req.body;
-  // Tenta pegar qualquer uma das chaves que você configurou no Vercel
+  const { prompt } = req.body;
   const apiKey = process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 
   try {
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Chave API não configurada no ambiente Vercel.' });
-    }
+    if (!apiKey) return res.status(500).json({ error: 'Chave API ausente.' });
 
-    const modelosParaTentar = [modelo, ...MODELOS_FALLBACK.filter(item => item !== modelo)];
-    let ultimoStatus = 500;
-    let ultimoErro = 'Erro desconhecido ao chamar a API Gemini.';
+    const modelosDisponiveis = await buscarModelosAtivos(apiKey);
+    let ultimoErro = '';
 
-    for (const modeloAtual of modelosParaTentar) {
-      for (let tentativa = 0; tentativa < 2; tentativa++) {
-        const { response, corpo } = await chamarGemini({ prompt, modelo: modeloAtual, apiKey });
+    for (const modelo of modelosDisponiveis) {
+      try {
+        const { response, corpo } = await chamarGemini({ prompt, modelo, apiKey });
 
         if (response.ok) {
           const data = JSON.parse(corpo);
-          // Extrai apenas o texto para facilitar o seu Frontend
-          const textoFinal = data.candidates[0].content.parts[0].text;
-          return res.status(200).json({ result: textoFinal });
+          if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return res.status(200).json({
+              result: data.candidates[0].content.parts[0].text
+            });
+          }
         }
-
-        ultimoStatus = response.status;
-        ultimoErro = corpo || `HTTP ${response.status}`;
-
-        if (response.status === 503 && tentativa === 0) {
-          await esperar(1200);
-          continue;
-        }
-        break;
-      }
+        ultimoErro = corpo;
+      } catch (e) { continue; }
     }
 
-    res.status(ultimoStatus).json({ error: ultimoErro });
+    res.status(500).json({ error: "Teca foi organizar uns livros e já volta.", detalhes: ultimoErro });
   } catch (error) {
-    console.error('Erro na Vercel Function:', error);
     res.status(500).json({ error: error.message });
   }
 }

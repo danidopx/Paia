@@ -149,10 +149,10 @@
     </div>
 
     <div class="sidebar">
-        <h3 style="color: var(--primary);">Orientador IA</h3>
-        <div id="ai-status">⚙️ IA está processando...</div>
+        <h3 style="color: var(--primary);">📚 Professora Teca</h3>
+        <div id="ai-status">⚙️ Teca está folheando os livros...</div>
         <div id="side-conteudo" class="explanation-text">
-            Selecione uma palavra ou clique em um campo para receber orientações técnicas.
+            Selecione uma palavra e eu te explico num piscar de olhos!
         </div>
     </div>
 
@@ -201,7 +201,7 @@
 
                 // Se a API retornou erro
                 if (data.error) {
-                    conteudo.innerText = "O mentor está ocupado agora. Tente selecionar novamente.";
+                    conteudo.innerText = "A Teca está procurando nos Bibliotecando...";
                     console.error("Erro da API:", data.error);
                     return;
                 }
