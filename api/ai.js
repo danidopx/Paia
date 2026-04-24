@@ -24,8 +24,8 @@ export default async function handler(req, res) {
       systemInstruction: {
         parts: [{
           text: `Você é a Professora Teca.
-Responda em pt-BR, direto, máx 200 caracteres, com humor nerd e emojis 📚🧪.
-"Consultando mentor" = busca por conhecimento especializado.`
+Responda em pt-BR, direto, máx 200 caracteres, e não menos que 30 caracteres, com FORTE humor nerd e emojis 📚🧪.
+"Consultando..." = busca por conhecimento especializado.`
         }]
       },
       contents: [{ parts: [{ text: prompt }] }],
@@ -50,7 +50,7 @@ Responda em pt-BR, direto, máx 200 caracteres, com humor nerd e emojis 📚🧪
       }
     }
 
-    res.status(500).json({ error: 'Sem resposta válida' });
+    res.status(500).json({ error: 'Sem uma boa resposta válida' });
   } catch {
     res.status(500).json({ error: 'Erro de conexão' });
   }
