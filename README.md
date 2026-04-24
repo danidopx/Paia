@@ -1,2 +1,2 @@
-# Descobridor
+# Paia - A IA do Pai
 Vamos ver se você pode...
