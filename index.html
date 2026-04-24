@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocolo Científico v2.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #00d4ff; --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --sidebar-bg: #21262d; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; }
+        
+        /* Layout */
+        #app { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+        .sidebar { width: 350px; background: var(--sidebar-bg); border-left: 1px solid #30363d; padding: 25px; display: flex; flex-direction: column; }
+        
+        .container { max-width: 600px; width: 100%; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid #30363d; }
+        .hidden { display: none; }
+
+        /* Interatividade */
+        .step-label { color: var(--primary); font-weight: bold; display: block; margin-top: 20px; cursor: help; }
+        textarea { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; background: #010409; color: white; border: 1px solid #30363d; resize: none; }
+        
+        button { background: var(--primary); color: #0d1117; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 20px; }
+        
+        /* Sidebar */
+        #ai-status { font-size: 12px; color: var(--primary); margin-bottom: 10px; display: none; }
+        .explanation-text { font-size: 14px; line-height: 1.5; color: #8b949e; }
+        .admin-row { font-size: 12px; border-bottom: 1px solid #30363d; padding: 10px 0; }
+    </style>
+</head>
+<body onmouseup="analisarSelecao()">
+
+<div id="app">
+    <div id="tela-intro" class="container">
+        <h1>🔬 Laboratório de Investigação</h1>
+        <p>Bem-vinda ao protocolo de pesquisa. Aqui, usamos o <strong>Método Científico</strong>: um sistema lógico para separar fatos de opiniões.</p>
+        <p>Ao lado, sua <strong>IA de Suporte</strong> explicará termos complexos. Basta selecionar qualquer palavra com o mouse ou o dedo.</p>
+        <button onclick="irPara('tela-lab')">Iniciar Protocolo</button>
+    </div>
+
+    <div id="tela-lab" class="container hidden">
+        <select id="tema" style="width:100%; padding:10px; background:#010409; color:white; border-radius:8px;">
+            <option value="psicologia">Psicologia (Comportamento)</option>
+            <option value="astronomia">Astronomia (Cosmos)</option>
+            <option value="quimica">Química (Matéria)</option>
+        </select>
+
+        <span class="step-label" onclick="explicar('obs')">1. Observação</span>
+        <textarea id="campo-obs" rows="3" placeholder="O que seus sentidos captam?"></textarea>
+
+        <span class="step-label" onclick="explicar('hip')">2. Hipótese</span>
+        <textarea id="campo-hip" rows="3" placeholder="Qual a sua teoria inicial?"></textarea>
+
+        <span class="step-label" onclick="explicar('con')">3. Conclusão</span>
+        <textarea id="campo-con" rows="4" placeholder="O que os dados provaram?"></textarea>
+
+        <button id="btn-save" onclick="salvar()">Finalizar Relatório</button>
+    </div>
+
+    <div id="tela-admin" class="container hidden" style="max-width: 800px;">
+        <h2>Dashboard do Supervisor</h2>
+        <div id="admin-content"></div>
+        <button onclick="location.href='index.html'">Sair do Admin</button>
+    </div>
+</div>
+
+<div class="sidebar">
+    <h3 style="color: var(--primary);">Orientador IA</h3>
+    <div id="ai-status">⚙️ IA está processando...</div>
+    <div id="side-conteudo" class="explanation-text">
+        Selecione uma palavra ou clique em um campo para receber orientações técnicas.
+    </div>
+</div>
+
+<script>
+    const supabaseUrl = 'https://jjpmqxcymsrglwenklfo.supabase.co';
+    const supabaseKey = 'sb_publishable_aiCmRwdcB4BM-wQAj_2kpg_Wl0nMaOq';
+    const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    function irPara(id) {
+        document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    // Lógica Admin via URL
+    if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
+        irPara('tela-admin');
+        carregarAdmin();
+    }
+
+    async function carregarAdmin() {
+        const { data } = await _supabase.from('relatorios_cientificos').select('*').order('created_at', {ascending: false});
+        document.getElementById('admin-content').innerHTML = data.map(r => `
+            <div class="admin-row">
+                <strong>${new Date(r.created_at).toLocaleDateString()} - ${r.area}</strong><br>
+                <em>Obs:</em> ${r.observacao}<br>
+                <em>Concl:</em> ${r.conclusao}
+            </div>
+        `).join('');
+    }
+
+    // INTEGRAÇÃO IA
+    async function falarComIA(prompt) {
+        const status = document.getElementById('ai-status');
+        const conteudo = document.getElementById('side-conteudo');
+        status.style.display = 'block';
+        
+        try {
+            const res = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            const data = await res.json();
+            conteudo.innerText = data.result;
+        } catch (e) {
+            conteudo.innerText = "Erro ao conectar com o servidor de IA. Verifique as chaves de API.";
+        } finally {
+            status.style.display = 'none';
+        }
+    }
+
+    function analisarSelecao() {
+        const sel = window.getSelection().toString().trim();
+        if (sel.length > 3 && sel.length < 30) {
+            falarComIA(`Explique o conceito científico de "${sel}" para um estudante.`);
+        }
+    }
+
+    function explicar(tipo) {
+        const dicas = {
+            obs: "Explique como a observação fenomenológica elimina preconceitos.",
+            hip: "Explique o que é o falseamento de uma hipótese segundo Karl Popper.",
+            con: "Explique a diferença entre correlação e causalidade."
+        };
+        falarComIA(dicas[tipo]);
+    }
+
+    async function salvar() {
+        const btn = document.getElementById('btn-save');
+        btn.disabled = true;
+        btn.innerText = "Sincronizando...";
+
+        const dados = {
+            area: document.getElementById('tema').value,
+            observacao: document.getElementById('campo-obs').value,
+            hipotese: document.getElementById('campo-hip').value,
+            conclusao: document.getElementById('campo-con').value
+        };
+
+        const { error } = await _supabase.from('relatorios_cientificos').insert([dados]);
+        if(!error) {
+            alert("Protocolo Enviado!");
+            location.reload();
+        } else {
+            alert("Erro: " + error.message);
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
