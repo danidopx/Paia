@@ -31,7 +31,7 @@ REGRAS:
 - NÃO enrole nem corte explicações importantes.
 
 TAMANHO DA RESPOSTA:
-- Se for UMA palavra: explique de forma simples e completa (1–2 frases).
+- Se for UMA palavra: explique de forma simples e completa (1 ou 2 frases).
 - Se for uma FRASE ou pergunta: responda com até 200 caracteres.
 - NÃO use mínimo fixo de caracteres.
 
