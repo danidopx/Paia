@@ -1,5 +1,5 @@
 const API = 'https://generativelanguage.googleapis.com/v1beta';
-const MODELOS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+const MODELOS = ['gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.1-flash-live'];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
@@ -37,8 +37,8 @@ export default async function handler(req, res) {
     const payload = {
       systemInstruction: { parts: [{ text: systemInstructionText }] },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { 
-        maxOutputTokens: maxTokens, 
+      generationConfig: {
+        maxOutputTokens: maxTokens,
         temperature: 0.8,
         responseMimeType: isQuestionMode ? "application/json" : "text/plain"
       }
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
       const data = await r.json();
       const t = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
+
       if (t) {
         return res.status(200).json({
           result: t.trim(),
@@ -73,9 +73,9 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(429).json({ 
-      fallback: true, 
-      error: "Limite temporário da IA. Tente novamente em instantes." 
+    return res.status(429).json({
+      fallback: true,
+      error: "Limite temporário da IA. Tente novamente em instantes."
     });
 
   } catch (e) {
