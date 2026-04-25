@@ -250,6 +250,52 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
+        // --- Gerenciamento Inteligente de Modelos ---
+        const MODEL_CACHE_KEY = 'teca_modelos_disponiveis';
+        const MODEL_UPDATED_KEY = 'teca_modelos_atualizado_em';
+        const MODEL_BLOCK_KEY = 'teca_modelos_bloqueados';
+        const CACHE_VALIDITY = 43200000; // 12 horas
+        const BLOCK_DURATION = 600000;  // 10 minutos
+
+        async function carregarModelos() {
+            const agora = Date.now();
+            const atualizadoEm = localStorage.getItem(MODEL_UPDATED_KEY);
+            if (atualizadoEm && (agora - parseInt(atualizadoEm)) < CACHE_VALIDITY) return;
+            try {
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'listModels' })
+                });
+                const data = await res.json();
+                if (data.providers) {
+                    localStorage.setItem(MODEL_CACHE_KEY, JSON.stringify(data.providers));
+                    localStorage.setItem(MODEL_UPDATED_KEY, agora.toString());
+                }
+            } catch (e) { console.error("Erro ao listar modelos:", e); }
+        }
+
+        function obterModelosParaUso() {
+            const agora = Date.now();
+            const cache = JSON.parse(localStorage.getItem(MODEL_CACHE_KEY) || '{"gemini": ["gemini-2.0-flash"], "openai": ["gpt-4o-mini"]}');
+            const bloqueados = JSON.parse(localStorage.getItem(MODEL_BLOCK_KEY) || '{}');
+            for (const m in bloqueados) { if (agora > bloqueados[m]) delete bloqueados[m]; }
+            localStorage.setItem(MODEL_BLOCK_KEY, JSON.stringify(bloqueados));
+            const list = [];
+            (cache.gemini || []).forEach(m => list.push(`gemini:${m}`));
+            (cache.openai || []).forEach(m => list.push(`openai:${m}`));
+            return list.filter(m => !bloqueados[m]);
+        }
+
+        function bloquearModelo(modelInfo) {
+            if (!modelInfo) return;
+            const bloqueados = JSON.parse(localStorage.getItem(MODEL_BLOCK_KEY) || '{}');
+            bloqueados[modelInfo] = Date.now() + BLOCK_DURATION;
+            localStorage.setItem(MODEL_BLOCK_KEY, JSON.stringify(bloqueados));
+        }
+
+        window.addEventListener('DOMContentLoaded', carregarModelos);
+
         let etapa = 0;
         let respostas = [];
         let temaAtual = "";
@@ -315,7 +361,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         prompt: `[SISTEMA_PERGUNTAS] Tema: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`, 
-                        nome: nomeTeca 
+                        nome: nomeTeca,
+                        preferredModels: obterModelosParaUso()
                     })
                 });
                 const data = await res.json();
@@ -333,10 +380,8 @@
                     }
                 }
 
-                if (data.code === "SHELF_BUSY") {
-                    throw new Error(data.error);
-                }
-
+                if (data.meta && data.meta.model) bloquearModelo(data.meta.model);
+                if (data.code === "SHELF_BUSY") throw new Error(data.error);
                 throw new Error("A Teca não conseguiu organizar os cartões agora.");
 
             } catch(e) {
@@ -455,12 +500,13 @@
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, nome: nomeTeca })
+                    body: JSON.stringify({ prompt, nome: nomeTeca, preferredModels: obterModelosParaUso() })
                 });
 
                 const data = await res.json();
 
                 if (data.error) {
+                    if (data.meta && data.meta.model) bloquearModelo(data.meta.model);
                     conteudo.innerText = 'A Teca tropeçou nos livros. Tente de novo.';
                     console.error('Erro da API:', data.error);
                     return;
