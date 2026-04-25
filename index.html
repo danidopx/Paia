@@ -278,17 +278,29 @@
                 });
                 const data = await res.json();
                 
+                if (data.error) {
+                    console.error('Erro vindo da API:', data.error);
+                }
+
                 if (data.result) {
-                    perguntasDinamicas = data.result.split('\n').filter(p => p.trim() !== '').map(p => p.replace(/^\d+\.\s*/, '').trim());
-                    if (perguntasDinamicas.length >= 4) {
-                        perguntasDinamicas = perguntasDinamicas.slice(0, 4);
+                    console.log('Retorno bruto da IA:', data.result);
+                    
+                    const PREFIXOS_LIXO = /^(professora teca|aqui|claro|vamos|perguntas|tema:|ok[,!]?)/i;
+
+                    let linhas = data.result.split('\n')
+                        .map(p => p.replace(/^\d+[\.\-\)]?\s*/, '').replace(/^\*\*.*?\*\*\s*/, '').trim())
+                        .filter(p => p.length > 15 && p.includes('?') && !PREFIXOS_LIXO.test(p));
+
+                    if (linhas.length > 0) {
+                        perguntasDinamicas = linhas.slice(0, 4);
                         mostrarPergunta();
                         return;
                     }
                 }
-                document.getElementById("fluxo").innerHTML = "<p>Erro ao gerar as perguntas. Tente escolher novamente.</p>";
+                document.getElementById("fluxo").innerHTML = "<p>Erro ao interpretar as perguntas da Teca. Tente escolher o tema novamente.</p>";
             } catch(e) {
-                document.getElementById("fluxo").innerHTML = "<p>Erro de conexão com o laboratório.</p>";
+                console.error('Falha de rede:', e);
+                document.getElementById("fluxo").innerHTML = "<p>Erro de conexão com o laboratório central.</p>";
             }
         }
 

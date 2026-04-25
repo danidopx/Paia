@@ -1,15 +1,7 @@
 const API = 'https://generativelanguage.googleapis.com/v1beta';
-
-async function getModelosAtivos(key) {
-  try {
-    const { models } = await fetch(`${API}/models?key=${key}`).then(r => r.json());
-    return models
-      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
-      .map(m => m.name.replace('models/', ''));
-  } catch {
-    return ['gemini-2.0-flash'];
-  }
-}
+// Modelo rápido fixo - evita chamada extra de descoberta
+const MODELO_RAPIDO = 'gemini-2.0-flash';
+const MODELO_ANALISE = 'gemini-1.5-flash';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
@@ -18,8 +10,6 @@ export default async function handler(req, res) {
   const key = process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 
   try {
-    const modelos = await getModelosAtivos(key);
-
     let systemInstructionText = `Você é a Professora Teca.
 
           REGRAS:
@@ -52,36 +42,45 @@ export default async function handler(req, res) {
       systemInstructionText = `Você é a Professora Teca. Faça uma análise final carinhosa e nerd sobre as respostas do aluno ao protocolo científico. Máximo de 500 caracteres. Avalie com base no método científico. Elogie a curiosidade cientifica.`;
     }
 
+    // Tokens e modelo otimizados por tipo de request
+    let modelo = MODELO_RAPIDO;
+    let maxTokens = 300;
+
+    if (prompt.startsWith('[SISTEMA_PERGUNTAS]')) {
+      maxTokens = 250; // 4 perguntas curtas, não precisa de mais
+    } else if (prompt.startsWith('[SISTEMA_ANALISE]')) {
+      modelo = MODELO_ANALISE;
+      maxTokens = 600;
+    }
+
     const payload = {
       systemInstruction: {
         parts: [{ text: systemInstructionText }]
       },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 800, temperature: 0.8 }
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.9 }
     };
 
-    for (const m of modelos) {
-      const r = await fetch(`${API}/models/${m}:generateContent?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+    const r = await fetch(`${API}/models/${modelo}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!r.ok) {
+      const errText = await r.text();
+      console.error('API error:', r.status, errText);
+      return res.status(500).json({ error: `API retornou ${r.status}` });
+    }
+    const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (t) {
+      return res.status(200).json({
+        result: t.trim(),
+        meta: { nome: nome || 'desconhecido', prompt }
       });
-
-      if (!r.ok) continue;
-
-      const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (t) {
-        return res.status(200).json({
-          result: t.trim(),
-          meta: {
-            nome: nome || 'desconhecido',
-            prompt
-          }
-        });
-      }
     }
 
-    res.status(500).json({ error: 'Sem uma boa resposta válida' });
+    res.status(500).json({ error: 'Sem resposta válida do modelo' });
   } catch {
     res.status(500).json({ error: 'Erro de conexão' });
   }
