@@ -285,19 +285,29 @@
                 if (data.result) {
                     console.log('Retorno bruto da IA:', data.result);
                     
-                    const PREFIXOS_LIXO = /^(professora teca|aqui|claro|vamos|perguntas|tema:|ok[,!]?)/i;
+                    // Limpeza de prefixos caso a IA insista em dar bom dia/se apresentar
+                    const CLEAN_PREFIX = /^(professora teca[:\s\.]+|aqui estão as perguntas[:\s\.]+|com certeza[:\s\.]+|claro[:\s\.]+|vamos lá[:\s\.]+)/i;
 
                     let linhas = data.result.split('\n')
-                        .map(p => p.replace(/^\d+[\.\-\)]?\s*/, '').replace(/^\*\*.*?\*\*\s*/, '').trim())
-                        .filter(p => p.length > 15 && p.includes('?') && !PREFIXOS_LIXO.test(p));
+                        .map(p => {
+                            let text = p.trim();
+                            // Tira "Professora Teca:" do início da linha se houver
+                            text = text.replace(CLEAN_PREFIX, '');
+                            // Tira numeração e negritos
+                            text = text.replace(/^\d+[\.\.\-\)]?\s*/, '').replace(/^\*\*.*?\*\*:?\s*/, '').trim();
+                            return text;
+                        })
+                        .filter(p => p.length > 10);
 
-                    if (linhas.length > 0) {
+                    console.log('Linhas processadas:', linhas);
+
+                    if (linhas.length >= 1) {
                         perguntasDinamicas = linhas.slice(0, 4);
                         mostrarPergunta();
                         return;
                     }
                 }
-                document.getElementById("fluxo").innerHTML = "<p>Erro ao interpretar as perguntas da Teca. Tente escolher o tema novamente.</p>";
+                document.getElementById("fluxo").innerHTML = "<p>A Professora Teca se empolgou na conversa! Tente escolher o tema de novo para ela focar no protocolo. 🤓</p>";
             } catch(e) {
                 console.error('Falha de rede:', e);
                 document.getElementById("fluxo").innerHTML = "<p>Erro de conexão com o laboratório central.</p>";

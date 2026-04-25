@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     let maxTokens = 300;
 
     if (prompt.startsWith('[SISTEMA_PERGUNTAS]')) {
-      maxTokens = 250; // 4 perguntas curtas, não precisa de mais
+      maxTokens = 400; // 4 perguntas curtas com humor nerd precisam de mais espaço
     } else if (prompt.startsWith('[SISTEMA_ANALISE]')) {
       modelo = MODELO_ANALISE;
       maxTokens = 600;
