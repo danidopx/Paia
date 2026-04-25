@@ -268,15 +268,18 @@
                 return;
             }
 
-            // 1. Verificar Cache
+            // 1. Verificar Cache (Session e Local)
             const cacheKey = `perguntas_teca_${temaAtual}`;
-            const cached = sessionStorage.getItem(cacheKey);
+            let cached = sessionStorage.getItem(cacheKey) || localStorage.getItem(cacheKey);
             if (cached) {
                 try {
                     perguntasDinamicas = JSON.parse(cached);
                     mostrarPergunta();
                     return;
-                } catch(e) { sessionStorage.removeItem(cacheKey); }
+                } catch(e) { 
+                    sessionStorage.removeItem(cacheKey); 
+                    localStorage.removeItem(cacheKey);
+                }
             }
 
             // 2. Interface de carregamento
@@ -305,22 +308,27 @@
                     if (Array.isArray(parsed) && parsed.length >= 1) {
                         perguntasDinamicas = parsed.slice(0, 4);
                         sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
+                        localStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
                         mostrarPergunta();
                         return;
                     }
+                }
+
+                if (data.code === "SHELF_BUSY") {
+                    throw new Error(data.error);
                 }
 
                 throw new Error(data.error || "Resposta inválida");
 
             } catch(e) {
                 console.error('Erro Fluxo:', e);
-                if (tentativa < 2) {
+                if (tentativa < 2 && !e.message.includes('estante')) {
                     setTimeout(() => iniciarFluxo(tentativa + 1), 1000);
                 } else {
                     document.getElementById("fluxo").innerHTML = `
                         <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                            <p>A estante da Teca ficou cheia demais por enquanto. Tente de novo em alguns instantes 📚</p>
-                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Vascular arquivos novamente</button>
+                            <p>${e.message.includes('estante') ? e.message : 'A estante da Teca está muito disputada agora. Tente de novo em alguns instantes 📚'}</p>
+                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Vasculhar arquivos novamente</button>
                         </div>
                     `;
                 }

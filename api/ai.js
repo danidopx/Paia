@@ -1,86 +1,129 @@
-const API = 'https://generativelanguage.googleapis.com/v1beta';
-const MODELOS = ['gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.1-flash-live'];
+const API_GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
+const API_OPENAI = 'https://api.openai.com/v1/responses';
+const API_CLAUDE = 'https://api.anthropic.com/v1/messages';
+
+async function callGemini(prompt, system, isJson, key) {
+  if (!key) return null;
+  const payload = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 500,
+      temperature: 0.8,
+      ...(isJson ? { responseMimeType: "application/json" } : {})
+    }
+  };
+  const r = await fetch(`${API_GEMINI}/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (r.status === 429) return { rateLimit: true };
+  if (!r.ok) return null;
+  const data = await r.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function callOpenAI(prompt, system, isJson, key) {
+  if (!key) return null;
+  const payload = {
+    model: "gpt-4o-mini",
+    instructions: system,
+    input: prompt,
+    ...(isJson ? { response_format: { type: "json_object" } } : {})
+  };
+  const r = await fetch(API_OPENAI, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify(payload)
+  });
+  if (r.status === 429) return { rateLimit: true };
+  if (!r.ok) return null;
+  const data = await r.json();
+  // v1/responses standard: output[0].content[0].text
+  return data.output?.[0]?.content?.[0]?.text || data.output?.[0]?.text || null;
+}
+
+async function callClaude(prompt, system, isJson, key) {
+  if (!key) return null;
+  const payload = {
+    model: "claude-3-5-haiku-20241022",
+    max_tokens: 500,
+    system: system,
+    messages: [{ role: "user", content: prompt }]
+  };
+  const r = await fetch(API_CLAUDE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (r.status === 429) return { rateLimit: true };
+  if (!r.ok) return null;
+  const data = await r.json();
+  return data.content?.[0]?.text || null;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
   const { prompt, nome } = req.body;
-  const key = process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const keys = {
+    gemini: process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
+    openai: process.env.OPENAI_API_KEY,
+    claude: process.env.ANTHROPIC_API_KEY
+  };
 
   try {
-    let systemInstructionText = `Você é a Professora Teca.
-          REGRAS:
-          - Responda sempre em pt-BR.
-          - Seja direta, clara e com humor nerd + emojis 📚🧪.
-          - NÃO enrole nem corte explicações importantes.
-          TAMANHO DA RESPOSTA:
-          - Explique termos de forma simples (máx 200 caracteres).
-          CONTEXTO:
-          - Se souber o nome da pessoa (${nome || 'aluna'}), use de forma leve.`;
-
-    let maxTokens = 300;
-    let isQuestionMode = false;
+    let system = `Você é a Professora Teca. Responda em pt-BR, direta, clara e com humor nerd 📚. Explique curto (máx 200 carac). Nome: ${nome || 'aluna'}.`;
+    let isJson = false;
 
     if (prompt.startsWith('[SISTEMA_PERGUNTAS]')) {
-      isQuestionMode = true;
-      maxTokens = 400;
-      systemInstructionText = `Você é a Professora Teca. Gere exatamente 4 perguntas INVESTIGATIVAS E DIVERTIDAS para adolescentes (11-13 anos).
-      REGRAS:
-      - Use referências pop/nerd contemporâneas.
-      - Retorne APENAS um array JSON de strings. Exemplo: ["p1", "p2", "p3", "p4"].
-      - NÃO adicione introduções, explicações ou markdown fora do bloco JSON.`;
+      isJson = true;
+      system = `Você é a Professora Teca. Gere exatamente 4 perguntas dinâmicas (investigação) para adolescentes (11-13 anos).
+      Retorne APENAS um array JSON de strings: ["p1","p2","p3","p4"]. Sem texto fora do JSON.`;
     } else if (prompt.startsWith('[SISTEMA_ANALISE]')) {
-      maxTokens = 600;
-      systemInstructionText = `Você é a Professora Teca. Analise as respostas do aluno ao protocolo científico de forma carinhosa e nerd. Máximo 500 caracteres.`;
+      system = `Você é a Professora Teca. Analise as respostas do aluno ao protocolo científico de forma carinhosa e nerd (máx 500 carac).`;
     }
 
-    const payload = {
-      systemInstruction: { parts: [{ text: systemInstructionText }] },
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: maxTokens,
-        temperature: 0.8,
-        responseMimeType: isQuestionMode ? "application/json" : "text/plain"
-      }
-    };
+    const providers = [
+      { name: 'Gemini', call: callGemini, key: keys.gemini },
+      { name: 'OpenAI', call: callOpenAI, key: keys.openai },
+      { name: 'Claude', call: callClaude, key: keys.claude }
+    ];
 
-    // Rotação de modelos para tratar 429
-    for (const modelo of MODELOS) {
-      const r = await fetch(`${API}/models/${modelo}:generateContent?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+    for (const p of providers) {
+      if (!p.key) continue;
+      console.log(`Tentando provedor: ${p.name}...`);
+      const result = await p.call(prompt, system, isJson, p.key);
 
-      if (r.status === 429) {
-        console.warn(`Modelo ${modelo} retornou 429, tentando o próximo...`);
+      if (result && result.rateLimit) {
+        console.warn(`Provedor ${p.name} em rate limit.`);
         continue;
       }
 
-      if (!r.ok) {
-        const errText = await r.text();
-        console.error('API Error:', r.status, errText);
-        return res.status(r.status).json({ error: `Alguns papéis se misturaram na mesa da Teca. Tente novamente.` });
-      }
-
-      const data = await r.json();
-      const t = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (t) {
+      if (result) {
         return res.status(200).json({
-          result: t.trim(),
-          meta: { model: modelo }
+          result: result.trim(),
+          meta: { provider: p.name }
         });
       }
     }
 
-    return res.status(429).json({
+    return res.status(200).json({
       fallback: true,
-      error: "A estante da Teca ficou cheia demais por enquanto. Tente de novo em alguns instantes 📚"
+      code: "SHELF_BUSY",
+      error: "A estante da Teca está muito disputada agora. Tente de novo em alguns instantes 📚"
     });
 
   } catch (e) {
-    console.error('Erro Handler:', e);
+    console.error('Erro no callProviders:', e);
     res.status(500).json({ error: 'Alguma estante caiu no laboratório central!' });
   }
 }
