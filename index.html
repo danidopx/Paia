@@ -250,57 +250,12 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
-        const perguntasLocais = {
-            psicologia: [
-                "Qual foi a última coisa que te fez dar uma risada sincera hoje e por que isso aconteceu?",
-                "Se você pudesse 'debugar' uma emoção chata que sentiu ultimamente, qual seria e de onde ela vem?",
-                "Imagina que você é sua própria melhor amiga. Que conselho você daria para si mesma sobre essa emoção?",
-                "O que essa situação toda te ensinou sobre o seu 'eu' de hoje?"
-            ],
-            astronomia: [
-                "Já olhou para o céu à noite e sentiu que somos tipo um pixel num jogo gigante? O que mais te intrigiga lá fora?",
-                "Por que você acha que a galera tem tanta vontade de morar em Marte em vez de cuidar da Terra primeiro?",
-                "Se você fosse lançar uma sonda para descobrir vida em outro planeta, o que ela teria que procurar primeiro?",
-                "Depois de pensar sobre o universo infinito, o que mudou na sua forma de ver o nosso 'pálido ponto azul'?"
-            ],
-            biologia: [
-                "Você já reparou como o seu corpo reage quando você está nervosa ou animada? O que acontece?",
-                "Por que será que as plantas conseguem viver só de luz e água e a gente precisa de um delivery?",
-                "Se você pudesse criar um novo hábito super saudável para o seu 'avatar' humano, qual seria o impacto no seu dia?",
-                "O que a natureza te ensina sobre o tempo que cada coisa leva para crescer e florescer?"
-            ],
-            matematica: [
-                "Onde você percebe que a matemática está 'escondida' no seu feed ou nos jogos que você joga?",
-                "Por que muita gente acha matemática difícil? Será que é o jeito que ensinam ou a lógica que é misteriosa?",
-                "Tente resolver um probleminha da vida real (tipo dividir a conta com as amigas) sem usar calculadora. Qual o truque?",
-                "Como a matemática ajuda a dar ordem ao caos do mundo, desde a música até a construção civil?"
-            ],
-            politica: [
-                "Quais são as 'regras da casa' ou da escola que você acha que todo mundo deveria seguir para ninguém sair no prejuízo?",
-                "Por que é tão difícil para os adultos entrarem num acordo sobre como melhorar a cidade?",
-                "Se você fosse a 'líder da sala' por um dia, qual seria a sua primeira grande mudança para todos ficarem bem?",
-                "O que participar das decisões do seu grupo te ensina sobre democracia e justiça?"
-            ],
-            brasil: [
-                "Qual é a coisa mais 'Brasil raiz' da sua cidade que você não encontra em nenhum outro lugar do mundo?",
-                "Por que o nosso país é tão misturado e cheio de ritmos e sotaques diferentes? De onde vem essa energia?",
-                "Se você tivesse que explicar o que é ser brasileira para alguém de outro país em 3 palavras, quais seriam?",
-                "O que a gente pode fazer para tornar o nosso país um lugar mais justo e incrível para todo mundo?"
-            ],
-            fisica: [
-                "Você já percebeu como tudo que sobe, desce, e como a velocidade muda se você estiver numa bike ou correndo?",
-                "Por que será que a gente não flutua como se estivesse no espaço? Qual é a força invisível que segura a gente aqui?",
-                "Se você pudesse inventar um gadget que desafia as leis da física (tipo um skate voador), como ele funcionaria?",
-                "O que entender o movimento das coisas te ajuda a prever o que vai acontecer no seu percurso?"
-            ]
-        };
-
         let etapa = 0;
         let respostas = [];
         let temaAtual = "";
         let perguntasDinamicas = [];
 
-        async function iniciarFluxo() {
+        async function iniciarFluxo(tentativa = 1) {
             temaAtual = document.getElementById("tema").value;
             etapa = 0;
             respostas = [];
@@ -313,67 +268,62 @@
                 return;
             }
 
-            // 1. Tentar Cache no sessionStorage
-            const cacheKey = `perguntas_${temaAtual}`;
-            const cachedQuestions = sessionStorage.getItem(cacheKey);
-            if (cachedQuestions) {
-                perguntasDinamicas = JSON.parse(cachedQuestions);
-                mostrarPergunta();
-                return;
+            // 1. Verificar Cache
+            const cacheKey = `perguntas_teca_${temaAtual}`;
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                try {
+                    perguntasDinamicas = JSON.parse(cached);
+                    mostrarPergunta();
+                    return;
+                } catch(e) { sessionStorage.removeItem(cacheKey); }
             }
 
-            // 2. Tentar IA (com fallback silencioso para 429)
-            document.getElementById("fluxo").innerHTML = "<p>⚙️ Sincronizando com o Laboratório Central...</p>";
+            // 2. Interface de carregamento
+            document.getElementById("fluxo").innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <div class="spinner" style="margin-bottom:15px;">⚙️</div>
+                    <p>Teca preparando perguntas dinâmicas... (Tentativa ${tentativa}/2)</p>
+                </div>
+            `;
 
             try {
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        prompt: `[SISTEMA_PERGUNTAS] Tema selecionado: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`, 
+                        prompt: `[SISTEMA_PERGUNTAS] Tema: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`, 
                         nome: nomeTeca 
                     })
                 });
                 const data = await res.json();
                 
-                // Trata o fallback (429 ou qualquer erro retornado pela API)
-                if (data.fallback || data.error || !data.result) {
-                    console.warn('IATeca em modo econômico. Ativando protocolo local.');
-                    return aplicarFallbackLocal();
+                if (data.result) {
+                    let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
+                    let parsed = JSON.parse(jsonStr);
+                    
+                    if (Array.isArray(parsed) && parsed.length >= 1) {
+                        perguntasDinamicas = parsed.slice(0, 4);
+                        sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
+                        mostrarPergunta();
+                        return;
+                    }
                 }
 
-                // Parser robusto da IA
-                const CLEAN_PREFIX = /^(professora teca[:\s\.]+|aqui estão as perguntas[:\s\.]+|com certeza[:\s\.]+|claro[:\s\.]+|vamos lá[:\s\.]+)/i;
-                let rawLines = data.result.split('\n');
-                if (rawLines.length < 2 && data.result.includes('?')) {
-                    rawLines = data.result.split('?').map(s => s.trim() + (s.endsWith('?') ? '' : '?')).filter(s => s.length > 5);
-                }
+                throw new Error(data.error || "Resposta inválida");
 
-                let parsedQuestions = rawLines
-                    .map(p => p.trim().replace(CLEAN_PREFIX, '').replace(/^\d+[\.\.\-\)]?\s*/, '').replace(/^\*\*.*?\*\*:?\s*/, '').trim())
-                    .filter(p => p.length > 5);
-
-                if (parsedQuestions.length >= 4) {
-                    perguntasDinamicas = parsedQuestions.slice(0, 4);
-                    sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
-                    mostrarPergunta();
-                } else {
-                    aplicarFallbackLocal();
-                }
             } catch(e) {
-                console.error('Falha na IA. Ativando perguntas locais.', e);
-                aplicarFallbackLocal();
-            }
-        }
-
-        function aplicarFallbackLocal() {
-            if (perguntasLocais[temaAtual]) {
-                perguntasDinamicas = perguntasLocais[temaAtual];
-                // Cacheamos o fallback também para evitar re-requests de 429 na mesma sessão
-                sessionStorage.setItem(`perguntas_${temaAtual}`, JSON.stringify(perguntasDinamicas));
-                mostrarPergunta();
-            } else {
-                document.getElementById("fluxo").innerHTML = "<p>Tivemos um problema ao carregar o protocolo. Tente novamente.</p>";
+                console.error('Erro Fluxo:', e);
+                if (tentativa < 2) {
+                    setTimeout(() => iniciarFluxo(tentativa + 1), 1000);
+                } else {
+                    document.getElementById("fluxo").innerHTML = `
+                        <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
+                            <p>A Teca se distraiu com outros experimentos (Limite da IA). 🧪</p>
+                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar novamente</button>
+                        </div>
+                    `;
+                }
             }
         }
 
