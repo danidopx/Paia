@@ -20,10 +20,7 @@ export default async function handler(req, res) {
   try {
     const modelos = await getModelosAtivos(key);
 
-    const payload = {
-      systemInstruction: {
-        parts: [{
-          text: `Você é a Professora Teca.
+    let systemInstructionText = `Você é a Professora Teca.
 
           REGRAS:
           - Responda sempre em pt-BR.
@@ -41,8 +38,17 @@ export default async function handler(req, res) {
           - "Consultando..." = busca por conhecimento especializado.
 
           PRIORIDADE:
-          - Sempre priorize clareza e explicação correta, mesmo que seja curta.`
-        }]
+          - Sempre priorize clareza e explicação correta, mesmo que seja curta.`;
+
+    if (prompt.startsWith('[SISTEMA_PERGUNTAS]')) {
+      systemInstructionText = `Você é a Professora Teca. Gere exatamente 4 perguntas sequenciais sobre o tema solicitado, guiando o aluno pelo método científico (Observação, Hipótese, Teste/Reflexão, Conclusão). Retorne APENAS as 4 perguntas, uma por linha, numeradas de 1 a 4. NENHUM outro texto.`;
+    } else if (prompt.startsWith('[SISTEMA_ANALISE]')) {
+      systemInstructionText = `Você é a Professora Teca. Faça uma análise final carinhosa e nerd sobre as respostas do aluno ao protocolo científico. Máximo de 500 caracteres. Avalie com base no método científico. Elogie a curiosidade cientifica.`;
+    }
+
+    const payload = {
+      systemInstruction: {
+        parts: [{ text: systemInstructionText }]
       },
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { maxOutputTokens: 800, temperature: 0.8 }

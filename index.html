@@ -250,59 +250,16 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
-        const perguntasPorTema = {
-            psicologia: [
-                "O que você sentiu hoje que mais te marcou?",
-                "Por que você acha que sentiu isso?",
-                "O que você poderia fazer diferente na próxima vez?",
-                "O que você aprendeu sobre você mesma?"
-            ],
-            astronomia: [
-                "O que você sabe sobre o espaço, planetas ou estrelas?",
-                "Por que existe dia e noite?",
-                "O que você acha mais curioso no universo?",
-                "Que pergunta você faria para uma cientista da NASA?"
-            ],
-            biologia: [
-                "O que você sabe sobre seres vivos?",
-                "Por que precisamos comer, beber água e dormir?",
-                "O que mais te chama atenção nos animais, plantas ou corpo humano?",
-                "Que parte da vida você gostaria de entender melhor?"
-            ],
-            matematica: [
-                "Onde você usa matemática no dia a dia?",
-                "Como você tenta resolver um problema difícil?",
-                "O que você acha mais difícil em matemática?",
-                "Como a matemática poderia ser mais divertida?"
-            ],
-            politica: [
-                "O que você entende por regras em sociedade?",
-                "Por que existem leis?",
-                "O que é justiça pra você?",
-                "O que você mudaria na sua cidade se pudesse?"
-            ],
-            brasil: [
-                "O que você mais gosta no Brasil?",
-                "Que cultura, comida, música ou tradição brasileira você conhece?",
-                "Por que o Brasil é um país tão diverso?",
-                "O que você mudaria no Brasil se pudesse?"
-            ],
-            fisica: [
-                "Onde você vê movimento no dia a dia?",
-                "O que faz algo cair no chão?",
-                "Onde você percebe força, velocidade ou energia?",
-                "Que fenômeno da natureza você gostaria de entender?"
-            ]
-        };
-
         let etapa = 0;
         let respostas = [];
         let temaAtual = "";
+        let perguntasDinamicas = [];
 
-        function iniciarFluxo() {
+        async function iniciarFluxo() {
             temaAtual = document.getElementById("tema").value;
             etapa = 0;
             respostas = [];
+            perguntasDinamicas = [];
 
             document.getElementById("btn-save").classList.add("hidden");
 
@@ -311,16 +268,37 @@
                 return;
             }
 
-            mostrarPergunta();
+            document.getElementById("fluxo").innerHTML = "<p>⚙️ A Professora Teca está escrevendo as perguntas...</p>";
+
+            try {
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: `[SISTEMA_PERGUNTAS] Tema selecionado: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`, nome: nomeTeca })
+                });
+                const data = await res.json();
+                
+                if (data.result) {
+                    perguntasDinamicas = data.result.split('\n').filter(p => p.trim() !== '').map(p => p.replace(/^\d+\.\s*/, '').trim());
+                    if (perguntasDinamicas.length >= 4) {
+                        perguntasDinamicas = perguntasDinamicas.slice(0, 4);
+                        mostrarPergunta();
+                        return;
+                    }
+                }
+                document.getElementById("fluxo").innerHTML = "<p>Erro ao gerar as perguntas. Tente escolher novamente.</p>";
+            } catch(e) {
+                document.getElementById("fluxo").innerHTML = "<p>Erro de conexão com o laboratório.</p>";
+            }
         }
 
         function mostrarPergunta() {
-            const pergunta = perguntasPorTema[temaAtual][etapa];
+            const pergunta = perguntasDinamicas[etapa];
 
             document.getElementById("fluxo").innerHTML = `
-        <span class="step-label">Pergunta ${etapa + 1} de ${perguntasPorTema[temaAtual].length}</span>
+        <span class="step-label">Pergunta ${etapa + 1} de ${perguntasDinamicas.length}</span>
         <p>${pergunta}</p>
-        <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta"></textarea>
+        <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta cientista..."></textarea>
         <button type="button" onclick="proximaPergunta()">Próxima</button>
       `;
         }
@@ -334,20 +312,20 @@
             }
 
             respostas.push({
-                pergunta: perguntasPorTema[temaAtual][etapa],
+                pergunta: perguntasDinamicas[etapa],
                 resposta
             });
 
             etapa++;
 
-            if (etapa < perguntasPorTema[temaAtual].length) {
+            if (etapa < perguntasDinamicas.length) {
                 mostrarPergunta();
             } else {
                 finalizarFluxo();
             }
         }
 
-        function finalizarFluxo() {
+        async function finalizarFluxo() {
             const resumo = respostas.map((r, i) => `
         <div class="admin-row">
           <strong>${i + 1}. ${r.pergunta}</strong><br>
@@ -356,10 +334,43 @@
       `).join('');
 
             document.getElementById("fluxo").innerHTML = `
-        <h3>Relatório pronto</h3>
-        <p>Você respondeu todas as perguntas. Revise e envie.</p>
+        <h3>Relatório estruturado 🔬</h3>
+        <p>A Professora Teca está analisando suas respostas...</p>
         ${resumo}
       `;
+
+            try {
+                const docRef = respostas.map((r, i) => `(Pergunta ${i+1}): ${r.pergunta} - (Resposta do Aluno ${i+1}): ${r.resposta}`).join(' | ');
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: `[SISTEMA_ANALISE] Respostas do aluno:\n${docRef}`, nome: nomeTeca })
+                });
+                const data = await res.json();
+                
+                let analise = "";
+                if (data.result) {
+                    analise = `
+                        <div style="background: rgba(0,212,255,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 20px;">
+                            <strong>👩‍🏫 Análise final da Teca:</strong><br/>
+                            <p style="margin-top: 10px; font-size: 14px;">${data.result}</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById("fluxo").innerHTML = `
+                    <h3>Relatório pronto</h3>
+                    ${resumo}
+                    ${analise}
+                    <p style="margin-top: 20px; font-weight: bold;">Deseja enviar seu relatório finalizado?</p>
+                `;
+            } catch(e) {
+                document.getElementById("fluxo").innerHTML = `
+                    <h3>Relatório pronto</h3>
+                    ${resumo}
+                    <p style="margin-top: 20px; font-weight: bold;">Deseja enviar seu relatório finalizado?</p>
+                `;
+            }
 
             document.getElementById("btn-save").classList.remove("hidden");
         }
@@ -410,10 +421,12 @@
             }
         }
 
+        let ultimaSelecao = "";
         function analisarSelecao() {
             const sel = window.getSelection().toString().trim();
 
-            if (sel.length > 1 && sel.length < 120) {
+            if (sel.length > 1 && sel.length < 120 && sel !== ultimaSelecao) {
+                ultimaSelecao = sel;
                 falarComIA(`Explique de forma correta e simples: "${sel}"`);
             }
         }
