@@ -41,6 +41,7 @@
             padding: 25px;
             display: flex;
             flex-direction: column;
+            box-sizing: border-box;
         }
 
         .container {
@@ -50,6 +51,7 @@
             padding: 30px;
             border-radius: 12px;
             border: 1px solid #30363d;
+            box-sizing: border-box;
         }
 
         .hidden {
@@ -111,10 +113,34 @@
             border-bottom: 1px solid #30363d;
             padding: 10px 0;
         }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            #app {
+                padding: 15px;
+                overflow-y: visible;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #30363d;
+                order: -1;
+            }
+        }
     </style>
 </head>
 
-<body onmouseup="analisarSelecao()">
+<body onmouseup="analisarSelecao()" ontouchend="setTimeout(analisarSelecao, 500)">
 
     <div id="app">
 

@@ -12,16 +12,10 @@ async function getModelosAtivos(key) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método não permitido' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
-  const { prompt, nome } = req.body;
+  const { prompt } = req.body;
   const key = process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-
-  if (!key) {
-    return res.status(500).json({ error: 'Chave da IA ausente' });
-  }
 
   try {
     const modelos = await getModelosAtivos(key);
@@ -30,41 +24,16 @@ export default async function handler(req, res) {
       systemInstruction: {
         parts: [{
           text: `Você é a Professora Teca.
-
-REGRAS:
-- Responda sempre em pt-BR.
-- Seja direta, clara e com humor nerd + emojis 📚🧪.
-- NÃO enrole nem corte explicações importantes.
-
-TAMANHO DA RESPOSTA:
-- Se for UMA palavra: explique de forma simples e completa (1–2 frases).
-- Se for uma FRASE ou pergunta: responda com até 200 caracteres.
-- NÃO use mínimo fixo de caracteres.
-
-CONTEXTO:
-- Se souber o nome da pessoa, use de forma leve.
-- Se não souber o nome, pergunte primeiro e depois explique.
-- "Consultando..." = busca por conhecimento especializado.
-
-PRIORIDADE:
-- Sempre priorize clareza e explicação correta, mesmo que seja curta.`
+Responda em pt-BR, direto, máx 200 caracteres, com FORTEhumor nerd e emojis 📚🧪.
+"Consultando..." = busca por conhecimento especializado.`
         }]
       },
-      contents: [{
-        parts: [{
-          text: nome
-            ? `Nome da estudante: ${nome}. Explique: ${prompt}`
-            : `Você ainda não sabe o nome da estudante. Pergunte o nome dela antes de explicar: ${prompt}`
-        }]
-      }],
-      generationConfig: {
-        maxOutputTokens: 200,
-        temperature: 0.8
-      }
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 200, temperature: 0.8 }
     };
 
-    for (const modelo of modelos) {
-      const r = await fetch(`${API}/models/${modelo}:generateContent?key=${key}`, {
+    for (const m of modelos) {
+      const r = await fetch(`${API}/models/${m}:generateContent?key=${key}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -72,16 +41,11 @@ PRIORIDADE:
 
       if (!r.ok) continue;
 
-      const data = await r.json();
-      const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (texto) {
+      const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (t) {
         return res.status(200).json({
-          result: texto.trim(),
-          meta: {
-            nome: nome || 'desconhecido',
-            prompt
-          }
+          result: t.trim(),
+          link: `https://www.google.com/search?q=${encodeURIComponent(prompt)}`
         });
       }
     }
