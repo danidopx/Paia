@@ -137,6 +137,12 @@
                 order: -1;
             }
         }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-15px); }
+            60% { transform: translateY(-7px); }
+        }
     </style>
 </head>
 
@@ -144,7 +150,17 @@
 
     <div id="app">
 
-        <div id="tela-intro" class="container">
+        <div id="tela-chamada" class="container" style="text-align: center;">
+            <div style="font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite;">👩‍🏫</div>
+            <h2 style="color: var(--primary);">Chamada do Laboratório!</h2>
+            <p style="color: #8b949e; margin-bottom: 25px;">A professora Teca quer saber quem está participando da investigação de hoje.</p>
+            <input id="input-chamada" class="teca-input" type="text" placeholder="Qual o seu nome?" style="text-align: center; font-size: 18px; padding: 15px;">
+            <button onclick="responderChamada()" style="font-size: 18px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+                <span>🙋</span> Presente!
+            </button>
+        </div>
+
+        <div id="tela-intro" class="container hidden">
             <h1>Laboratório de Investigação da Professora Teca</h1>
 
             <p>
@@ -210,9 +226,23 @@
         const inputNomeTeca = document.getElementById('nome-teca');
         if (inputNomeTeca) inputNomeTeca.value = nomeTeca;
 
+        const inputChamada = document.getElementById('input-chamada');
+        if (inputChamada) inputChamada.value = nomeTeca;
+
         function salvarNomeTeca(nome) {
             nomeTeca = nome.trim();
             sessionStorage.setItem('nomeTeca', nomeTeca);
+        }
+
+        function responderChamada() {
+            const val = inputChamada.value.trim();
+            if (!val) {
+                alert('A Professora Teca precisa anotar seu nome para o relatório!');
+                return;
+            }
+            salvarNomeTeca(val);
+            if (inputNomeTeca) inputNomeTeca.value = val;
+            irPara('tela-intro');
         }
 
         function irPara(id) {
