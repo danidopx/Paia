@@ -70,6 +70,13 @@ export default async function handler(req, res) {
     if (!r.ok) {
       const errText = await r.text();
       console.error('API error:', r.status, errText);
+      if (r.status === 429) {
+        return res.status(200).json({ 
+          fallback: true, 
+          error: 'A Professora Teca está com muitos alunos agora! Usando protocolo de reserva.',
+          result: '' 
+        });
+      }
       return res.status(500).json({ error: `API retornou ${r.status}` });
     }
     const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
