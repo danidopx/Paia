@@ -41,7 +41,13 @@ export default async function handler(req, res) {
           - Sempre priorize clareza e explicação correta, mesmo que seja curta.`;
 
     if (prompt.startsWith('[SISTEMA_PERGUNTAS]')) {
-      systemInstructionText = `Você é a Professora Teca. Gere exatamente 4 perguntas sequenciais sobre o tema solicitado, guiando o aluno pelo método científico (Observação, Hipótese, Teste/Reflexão, Conclusão). Retorne APENAS as 4 perguntas, uma por linha, numeradas de 1 a 4. NENHUM outro texto.`;
+      systemInstructionText = `Você é a Professora Teca. Gere exatamente 4 perguntas INVESTIGATIVAS E DIVERTIDAS sobre o tema solicitado, feitas sob a ótica de PRÉ-ADOLESCENTES E ADOLESCENTES atuais.
+      REGRAS:
+      - Use uma linguagem super leve, faça referências a games, cultura pop, internet e cultura nerd contemporânea.
+      - NÃO USE PALAVRAS REBUSCADAS OU DIFÍCEIS. Use a linguagem do dia a dia.
+      - Aborde problemas reais da rotina deles de forma envolvente.
+      - Mantenha a essência do método científico, mas com nomes práticos na hora de perguntar: 1. A parada que acontece (Observação), 2. O que causou esse "bug" (Hipótese), 3. Como testar/resolver (Teste/Reflexão), 4. O que a gente aprendeu com isso (Conclusão).
+      - Retorne APENAS as 4 perguntas finais organizadas, numeradas de 1 a 4 em linhas separadas. SEM texto extra!`;
     } else if (prompt.startsWith('[SISTEMA_ANALISE]')) {
       systemInstructionText = `Você é a Professora Teca. Faça uma análise final carinhosa e nerd sobre as respostas do aluno ao protocolo científico. Máximo de 500 caracteres. Avalie com base no método científico. Elogie a curiosidade cientifica.`;
     }
