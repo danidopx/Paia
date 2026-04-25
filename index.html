@@ -254,8 +254,11 @@
         let respostas = [];
         let temaAtual = "";
         let perguntasDinamicas = [];
+        let carregandoPerguntas = false;
 
         async function iniciarFluxo(tentativa = 1) {
+            if (carregandoPerguntas) return;
+
             temaAtual = document.getElementById("tema").value;
             etapa = 0;
             respostas = [];
@@ -282,7 +285,23 @@
                 }
             }
 
-            // 2. Interface de carregamento
+            // 2. Verificar Cooldown
+            const cooldownKey = `teca_retry_bloqueado_${temaAtual}`;
+            const bloqueio = localStorage.getItem(cooldownKey);
+            if (bloqueio && Date.now() < parseInt(bloqueio)) {
+                const minutosRestantes = Math.ceil((parseInt(bloqueio) - Date.now()) / 60000);
+                document.getElementById("fluxo").innerHTML = `
+                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
+                        <p>A estante da Teca está muito disputada agora. Ela deixou os cartões pausados por alguns minutos 📚</p>
+                        <p style="font-size: 12px; color: #8b949e;">Espere alguns minutos para vascular os arquivos novamente.</p>
+                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo daqui a pouco</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // 3. Chamar API
+            carregandoPerguntas = true;
             document.getElementById("fluxo").innerHTML = `
                 <div style="text-align:center; padding:20px;">
                     <div class="spinner" style="margin-bottom:15px;">⏳</div>
@@ -305,8 +324,8 @@
                     let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
                     let parsed = JSON.parse(jsonStr);
                     
-                    if (Array.isArray(parsed) && parsed.length >= 1) {
-                        perguntasDinamicas = parsed.slice(0, 4);
+                    if (Array.isArray(parsed) && parsed.length === 4) {
+                        perguntasDinamicas = parsed;
                         sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
                         localStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
                         mostrarPergunta();
@@ -318,20 +337,27 @@
                     throw new Error(data.error);
                 }
 
-                throw new Error(data.error || "Resposta inválida");
+                throw new Error("A Teca não conseguiu organizar os cartões agora.");
 
             } catch(e) {
                 console.error('Erro Fluxo:', e);
                 if (tentativa < 2 && !e.message.includes('estante')) {
-                    setTimeout(() => iniciarFluxo(tentativa + 1), 1000);
+                    setTimeout(() => {
+                        carregandoPerguntas = false;
+                        iniciarFluxo(tentativa + 1);
+                    }, 1500);
                 } else {
+                    // Ativa Cooldown de 5 minutos
+                    localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
                     document.getElementById("fluxo").innerHTML = `
                         <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                            <p>${e.message.includes('estante') ? e.message : 'A estante da Teca está muito disputada agora. Tente de novo em alguns instantes 📚'}</p>
+                            <p>${e.message.includes('estante') ? e.message : 'A estante da Teca está muito disputada agora. Ela deixou os cartões pausados por alguns minutos 📚'}</p>
                             <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Vasculhar arquivos novamente</button>
                         </div>
                     `;
                 }
+            } finally {
+                carregandoPerguntas = false;
             }
         }
 
