@@ -45,7 +45,7 @@ export default async function handler(req, res) {
         }]
       },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 200, temperature: 0.8 }
+      generationConfig: { maxOutputTokens: 800, temperature: 0.8 }
     };
 
     for (const m of modelos) {
