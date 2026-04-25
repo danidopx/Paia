@@ -170,7 +170,7 @@
             </p>
 
             <p>
-                Ao lado, sua <strong>IA de Suporte</strong> explicará termos complexos.
+                Ao lado, o <strong>Espaço de Sabedoria</strong> explicará termos complexos.
                 Basta selecionar qualquer palavra ou frase.
             </p>
 
@@ -282,8 +282,8 @@
             // 2. Interface de carregamento
             document.getElementById("fluxo").innerHTML = `
                 <div style="text-align:center; padding:20px;">
-                    <div class="spinner" style="margin-bottom:15px;">⚙️</div>
-                    <p>Teca preparando perguntas dinâmicas... (Tentativa ${tentativa}/2)</p>
+                    <div class="spinner" style="margin-bottom:15px;">⏳</div>
+                    <p>A Teca está separando os cartões da próxima investigação... 📚 (Ajuste ${tentativa}/2)</p>
                 </div>
             `;
 
@@ -319,8 +319,8 @@
                 } else {
                     document.getElementById("fluxo").innerHTML = `
                         <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                            <p>A Teca se distraiu com outros experimentos (Limite da IA). 🧪</p>
-                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar novamente</button>
+                            <p>A estante da Teca ficou cheia demais por enquanto. Tente de novo em alguns instantes 📚</p>
+                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Vascular arquivos novamente</button>
                         </div>
                     `;
                 }
@@ -449,7 +449,7 @@
                     conteudo.innerText = 'Não consegui processar essa explicação.';
                 }
             } catch (e) {
-                conteudo.innerText = 'Erro de conexão com o laboratório central.';
+                conteudo.innerText = 'A conexão com a biblioteca central falhou. Verifique sua estante (internet)!';
                 console.error(e);
             } finally {
                 status.style.display = 'none';
@@ -492,10 +492,10 @@
                 .insert([dados]);
 
             if (!error) {
-                alert('Protocolo enviado!');
+                alert('Protocolo enviado com sucesso para os arquivos da Teca!');
                 location.reload();
             } else {
-                alert('Erro: ' + error.message);
+                alert('A mesa da Teca está muito bagunçada para organizar seu relatório agora. Tente de novo em alguns segundos!');
                 btn.disabled = false;
                 btn.innerText = 'Finalizar Relatório';
             }

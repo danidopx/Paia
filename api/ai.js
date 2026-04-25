@@ -59,7 +59,8 @@ export default async function handler(req, res) {
 
       if (!r.ok) {
         const errText = await r.text();
-        return res.status(r.status).json({ error: `Erro API: ${r.status}`, details: errText });
+        console.error('API Error:', r.status, errText);
+        return res.status(r.status).json({ error: `Alguns papéis se misturaram na mesa da Teca. Tente novamente.` });
       }
 
       const data = await r.json();
@@ -75,11 +76,11 @@ export default async function handler(req, res) {
 
     return res.status(429).json({
       fallback: true,
-      error: "Limite temporário da IA. Tente novamente em instantes."
+      error: "A estante da Teca ficou cheia demais por enquanto. Tente de novo em alguns instantes 📚"
     });
 
   } catch (e) {
     console.error('Erro Handler:', e);
-    res.status(500).json({ error: 'Falha interna no laboratório.' });
+    res.status(500).json({ error: 'Alguma estante caiu no laboratório central!' });
   }
 }
