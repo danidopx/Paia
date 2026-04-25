@@ -279,25 +279,29 @@
                 const data = await res.json();
                 
                 if (data.error) {
-                    console.error('Erro vindo da API:', data.error);
+                    document.getElementById("fluxo").innerHTML = `<p>A Teca teve um probleminha técnico: ${data.error}. Tente escolher o tema de novo! 🧪</p>`;
+                    return;
                 }
 
                 if (data.result) {
                     console.log('Retorno bruto da IA:', data.result);
                     
-                    // Limpeza de prefixos caso a IA insista em dar bom dia/se apresentar
                     const CLEAN_PREFIX = /^(professora teca[:\s\.]+|aqui estão as perguntas[:\s\.]+|com certeza[:\s\.]+|claro[:\s\.]+|vamos lá[:\s\.]+)/i;
 
-                    let linhas = data.result.split('\n')
+                    // Tenta quebrar por linha, mas se vier tudo junto, tenta quebrar por "?"
+                    let rawLines = data.result.split('\n');
+                    if (rawLines.length < 2 && data.result.includes('?')) {
+                        rawLines = data.result.split('?').map(s => s.trim() + (s.endsWith('?') ? '' : '?')).filter(s => s.length > 5);
+                    }
+
+                    let linhas = rawLines
                         .map(p => {
                             let text = p.trim();
-                            // Tira "Professora Teca:" do início da linha se houver
                             text = text.replace(CLEAN_PREFIX, '');
-                            // Tira numeração e negritos
                             text = text.replace(/^\d+[\.\.\-\)]?\s*/, '').replace(/^\*\*.*?\*\*:?\s*/, '').trim();
                             return text;
                         })
-                        .filter(p => p.length > 10);
+                        .filter(p => p.length > 5);
 
                     console.log('Linhas processadas:', linhas);
 
@@ -306,11 +310,18 @@
                         mostrarPergunta();
                         return;
                     }
+                    
+                    // Se não conseguiu parsear linhas mas tem resultado, tenta usar o resultado bruto como uma única pergunta
+                    if (data.result.trim().length > 10) {
+                        perguntasDinamicas = [data.result.trim()];
+                        mostrarPergunta();
+                        return;
+                    }
                 }
-                document.getElementById("fluxo").innerHTML = "<p>A Professora Teca se empolgou na conversa! Tente escolher o tema de novo para ela focar no protocolo. 🤓</p>";
+                document.getElementById("fluxo").innerHTML = "<p>A Professora Teca se empolgou no papo e esqueceu as perguntas! Tenta escolher o tema de novo. 🤓</p>";
             } catch(e) {
                 console.error('Falha de rede:', e);
-                document.getElementById("fluxo").innerHTML = "<p>Erro de conexão com o laboratório central.</p>";
+                document.getElementById("fluxo").innerHTML = "<p>Erro na conexão com o laboratório. Verifique sua internet! 🌐</p>";
             }
         }
 
