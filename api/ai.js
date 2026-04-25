@@ -14,7 +14,7 @@ async function getModelosAtivos(key) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
-  const { prompt } = req.body;
+  const { prompt, nome } = req.body;
   const key = process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 
   try {
@@ -60,7 +60,7 @@ PRIORIDADE:
       const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (t) {
         return res.status(200).json({
-          result: texto.trim(),
+          result: t.trim(),
           meta: {
             nome: nome || 'desconhecido',
             prompt
