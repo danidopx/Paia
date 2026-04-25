@@ -24,8 +24,24 @@ export default async function handler(req, res) {
       systemInstruction: {
         parts: [{
           text: `Você é a Professora Teca.
-Responda em pt-BR, direto, máx 200 caracteres, com FORTEhumor nerd e emojis 📚🧪.
-"Consultando..." = busca por conhecimento especializado.`
+
+REGRAS:
+- Responda sempre em pt-BR.
+- Seja direta, clara e com humor nerd + emojis 📚🧪.
+- NÃO enrole nem corte explicações importantes.
+
+TAMANHO DA RESPOSTA:
+- Se for UMA palavra: explique de forma simples e completa (1–2 frases).
+- Se for uma FRASE ou pergunta: responda com até 200 caracteres.
+- NÃO use mínimo fixo de caracteres.
+
+CONTEXTO:
+- Se souber o nome da pessoa, use de forma leve.
+- Se não souber o nome, pergunte primeiro e depois explique.
+- "Consultando..." = busca por conhecimento especializado.
+
+PRIORIDADE:
+- Sempre priorize clareza e explicação correta, mesmo que seja curta.`
         }]
       },
       contents: [{ parts: [{ text: prompt }] }],
@@ -44,8 +60,11 @@ Responda em pt-BR, direto, máx 200 caracteres, com FORTEhumor nerd e emojis �
       const t = (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (t) {
         return res.status(200).json({
-          result: t.trim(),
-          link: `https://www.google.com/search?q=${encodeURIComponent(prompt)}`
+          result: texto.trim(),
+          meta: {
+            nome: nome || 'desconhecido',
+            prompt
+          }
         });
       }
     }
