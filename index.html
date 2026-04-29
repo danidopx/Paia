@@ -16,6 +16,41 @@
             --sidebar-bg: #21262d;
         }
 
+        function showUserLogs(user) {
+            const grouped = window._adminGroupedLogs || {};
+            const container = document.getElementById('admin-logs');
+            if (!container) return;
+            if (user === 'All') {
+                // render all groups
+                const users = Object.keys(grouped);
+                container.innerHTML = users.map(u => `
+                    <h4>${u} (${(grouped[u]||[]).length})</h4>
+                    ${(grouped[u]||[]).length ? (grouped[u]||[]).map(l => `
+                        <div class="admin-row">
+                            <strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br>
+                            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                            <em>Resposta:</em> ${l.resposta}
+                        </div>
+                    `).join('') : '<p>Nenhuma interação registrada.</p>'}
+                `).join('');
+                return;
+            }
+
+            const list = grouped[user] || [];
+            if (!list.length) {
+                container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
+                return;
+            }
+
+            container.innerHTML = list.map(l => `
+                <div class="admin-row">
+                    <strong>${new Date(l.data).toLocaleString()}</strong><br>
+                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                    <em>Resposta:</em> ${l.resposta}
+                </div>
+            `).join('');
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg);
@@ -174,13 +209,7 @@
                 <button onclick="openUserEntry('Maya')" style="flex:0 0 140px;">Maya</button>
             </div>
 
-            <div style="margin-top:18px; color:#8b949e; font-size:13px;">Ou digite seu nome abaixo:</div>
-            <input id="input-chamada" class="teca-input" type="text" placeholder="Qual o seu nome?"
-                style="text-align: center; font-size: 18px; padding: 15px; margin-top:8px;">
-            <button onclick="responderChamada()"
-                style="font-size: 18px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top:10px;">
-                <span>🙋</span> Presente!
-            </button>
+            <div style="margin-top:18px; color:#8b949e; font-size:13px;">Selecione seu nome acima para entrar.</div>
         </div>
 
         <!-- Modal de entrada do usuário -->
@@ -263,12 +292,10 @@
         const inputNomeTeca = document.getElementById('nome-teca');
         if (inputNomeTeca) inputNomeTeca.value = nomeTeca;
 
-        const inputChamada = document.getElementById('input-chamada');
-        if (inputChamada) inputChamada.value = nomeTeca;
-
         // --- Admin / Auth local storage keys ---
         const ADMIN_PASSWORD_KEY = 'teca_admin_password';
-        const DEFAULT_ADMIN_PASSWORD = 'TecaAdmin123!';
+        const DEFAULT_ADMIN_PASSWORD = 'dopj1982';
+        const USER_PASSWORDS_KEY = 'teca_user_passwords';
 
         function getAdminPassword() {
             return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
@@ -282,6 +309,20 @@
             localStorage.setItem(ADMIN_PASSWORD_KEY, newPass);
             alert('Senha do admin atualizada.');
             carregarAdmin();
+        }
+
+        function getUserPasswords() {
+            try { return JSON.parse(localStorage.getItem(USER_PASSWORDS_KEY) || '{}'); }
+            catch (e) { return {}; }
+        }
+
+        function saveUserPassword(user, pass) {
+            if (!user) return;
+            const map = getUserPasswords();
+            map[user] = pass;
+            localStorage.setItem(USER_PASSWORDS_KEY, JSON.stringify(map));
+            carregarAdmin();
+            alert(`Senha de ${user} atualizada.`);
         }
 
         // --- Modal usuário ---
@@ -302,10 +343,19 @@
         function submitUserEntry() {
             const pass = document.getElementById('modal-password').value || '';
             const code = document.getElementById('modal-code').value.trim() || '';
-            const adminPass = getAdminPassword();
 
-            if (pass !== adminPass) {
-                alert('Senha incorreta.');
+            if (!_pendingUser) return alert('Usuário não selecionado.');
+
+            const users = getUserPasswords();
+            const expected = users[_pendingUser];
+
+            if (!expected) {
+                alert('Senha para este usuário não foi definida pelo admin.');
+                return;
+            }
+
+            if (pass !== expected) {
+                alert('Senha incorreta para ' + _pendingUser + '.');
                 return;
             }
 
@@ -315,13 +365,11 @@
             }
 
             // Registrar seleção e código na sessão
-            nomeTeca = _pendingUser || nomeTeca;
+            nomeTeca = _pendingUser;
             sessionStorage.setItem('nomeTeca', nomeTeca);
             sessionStorage.setItem('teca_user_code', code);
             const inputNome = document.getElementById('nome-teca');
             if (inputNome) inputNome.value = nomeTeca;
-            const inputCh = document.getElementById('input-chamada');
-            if (inputCh) inputCh.value = nomeTeca;
 
             closeUserModal();
             irPara('tela-intro');
@@ -330,17 +378,6 @@
         function salvarNomeTeca(nome) {
             nomeTeca = nome.trim();
             sessionStorage.setItem('nomeTeca', nomeTeca);
-        }
-
-        function responderChamada() {
-            const val = inputChamada.value.trim();
-            if (!val) {
-                alert('A Professora Teca precisa anotar seu nome para o relatório!');
-                return;
-            }
-            salvarNomeTeca(val);
-            if (inputNomeTeca) inputNomeTeca.value = val;
-            irPara('tela-intro');
         }
 
         function irPara(id) {
@@ -728,25 +765,51 @@
             `).join('') : '<p>Nenhuma interação registrada.</p>'}
             `;
 
-            // Configurações do admin (senha)
+            // Configurações do admin (senha) e senhas por usuário
             const currentAdminPass = getAdminPassword();
+            const userPasswords = getUserPasswords();
+
+            // Save grouped logs to global for tab rendering
+            window._adminGroupedLogs = grouped;
 
             document.getElementById('admin-content').innerHTML = `
         <h3>Configurações do Admin</h3>
-        <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px;">
-            <label style="font-size:13px; color:#8b949e;">Senha atual (padrão se não definida):</label>
-            <div style="display:flex; gap:8px; margin-top:8px;">
-                <input id="admin-password" class="teca-input" type="text" value="${currentAdminPass}" style="flex:1;">
-                <button onclick="saveAdminPassword(document.getElementById('admin-password').value)">Salvar</button>
+        <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; gap:12px; align-items:center;">
+            <div style="flex:1;">
+                <label style="font-size:13px; color:#8b949e;">Senha Admin (padrão: dopj1982):</label>
+                <input id="admin-password" class="teca-input" type="text" value="${currentAdminPass}" style="margin-top:8px;">
             </div>
-            <p style="font-size:12px; color:#8b949e; margin-top:8px;">Dica: escolha uma senha segura. Está armazenada no navegador.</p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <button style="width:140px;" onclick="saveAdminPassword(document.getElementById('admin-password').value)">Salvar Admin</button>
+            </div>
+        </div>
+
+        <h3>Senhas por Usuário</h3>
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <div style="flex:1; border:1px dashed #30363d; padding:12px; border-radius:8px;">
+                <label style="font-size:13px; color:#8b949e;">Isis</label>
+                <input id="pass-Isis" class="teca-input" type="text" value="${userPasswords['Isis'] || ''}">
+                <button onclick="saveUserPassword('Isis', document.getElementById('pass-Isis').value)">Salvar Isis</button>
+            </div>
+            <div style="flex:1; border:1px dashed #30363d; padding:12px; border-radius:8px;">
+                <label style="font-size:13px; color:#8b949e;">Maya</label>
+                <input id="pass-Maya" class="teca-input" type="text" value="${userPasswords['Maya'] || ''}">
+                <button onclick="saveUserPassword('Maya', document.getElementById('pass-Maya').value)">Salvar Maya</button>
+            </div>
         </div>
 
         <h3>Relatórios enviados</h3>
         ${relatorios || '<p>Nenhum relatório encontrado.</p>'}
 
-        <h3 style="margin-top:30px;">Interações com a Professora Teca (por usuário)</h3>
-        ${blocoPorUsuario}
+        <h3 style="margin-top:30px;">Interações com a Professora Teca</h3>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button style="width:120px;" onclick="showUserLogs('Isis')">Isis</button>
+            <button style="width:120px;" onclick="showUserLogs('Maya')">Maya</button>
+            <button style="width:120px;" onclick="showUserLogs('All')">Todos</button>
+        </div>
+        <div id="admin-logs">
+            ${blocoPorUsuario}
+        </div>
       `;
         }
 
