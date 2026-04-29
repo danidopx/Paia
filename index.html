@@ -139,9 +139,22 @@
         }
 
         @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-15px); }
-            60% { transform: translateY(-7px); }
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-15px);
+            }
+
+            60% {
+                transform: translateY(-7px);
+            }
         }
     </style>
 </head>
@@ -153,11 +166,35 @@
         <div id="tela-chamada" class="container" style="text-align: center;">
             <div style="font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite;">👩‍🏫</div>
             <h2 style="color: var(--primary);">Chamada do Laboratório!</h2>
-            <p style="color: #8b949e; margin-bottom: 25px;">A professora Teca quer saber quem está participando da investigação de hoje.</p>
-            <input id="input-chamada" class="teca-input" type="text" placeholder="Qual o seu nome?" style="text-align: center; font-size: 18px; padding: 15px;">
-            <button onclick="responderChamada()" style="font-size: 18px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+            <p style="color: #8b949e; margin-bottom: 25px;">A professora Teca quer saber quem está participando da
+                investigação de hoje.</p>
+
+            <div style="display:flex; gap:12px; justify-content:center; margin-top: 12px;">
+                <button onclick="openUserEntry('Isis')" style="flex:0 0 140px;">Isis</button>
+                <button onclick="openUserEntry('Maya')" style="flex:0 0 140px;">Maya</button>
+            </div>
+
+            <div style="margin-top:18px; color:#8b949e; font-size:13px;">Ou digite seu nome abaixo:</div>
+            <input id="input-chamada" class="teca-input" type="text" placeholder="Qual o seu nome?"
+                style="text-align: center; font-size: 18px; padding: 15px; margin-top:8px;">
+            <button onclick="responderChamada()"
+                style="font-size: 18px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top:10px;">
                 <span>🙋</span> Presente!
             </button>
+        </div>
+
+        <!-- Modal de entrada do usuário -->
+        <div id="user-entry-modal" class="container hidden"
+            style="max-width:480px; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9999;">
+            <h3 id="modal-title">Entrar</h3>
+            <p style="color:#8b949e;">Para prosseguir como <strong id="selected-user">usuário</strong>, informe a senha
+                e um código alfanumérico.</p>
+            <input id="modal-password" class="teca-input" type="password" placeholder="Senha segura">
+            <input id="modal-code" class="teca-input" type="text" placeholder="Código alfanumérico (ex: A12B3)">
+            <div style="display:flex; gap:8px;">
+                <button onclick="submitUserEntry()">Entrar</button>
+                <button onclick="closeUserModal()" style="background:#333; color:#c9d1d9;">Cancelar</button>
+            </div>
         </div>
 
         <div id="tela-intro" class="container hidden">
@@ -228,6 +265,67 @@
 
         const inputChamada = document.getElementById('input-chamada');
         if (inputChamada) inputChamada.value = nomeTeca;
+
+        // --- Admin / Auth local storage keys ---
+        const ADMIN_PASSWORD_KEY = 'teca_admin_password';
+        const DEFAULT_ADMIN_PASSWORD = 'TecaAdmin123!';
+
+        function getAdminPassword() {
+            return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
+        }
+
+        function saveAdminPassword(newPass) {
+            if (!newPass || newPass.length < 4) {
+                alert('Senha muito curta. Use ao menos 4 caracteres.');
+                return;
+            }
+            localStorage.setItem(ADMIN_PASSWORD_KEY, newPass);
+            alert('Senha do admin atualizada.');
+            carregarAdmin();
+        }
+
+        // --- Modal usuário ---
+        let _pendingUser = '';
+        function openUserEntry(name) {
+            _pendingUser = name;
+            document.getElementById('selected-user').innerText = name;
+            document.getElementById('modal-password').value = '';
+            document.getElementById('modal-code').value = '';
+            document.getElementById('user-entry-modal').classList.remove('hidden');
+        }
+
+        function closeUserModal() {
+            document.getElementById('user-entry-modal').classList.add('hidden');
+            _pendingUser = '';
+        }
+
+        function submitUserEntry() {
+            const pass = document.getElementById('modal-password').value || '';
+            const code = document.getElementById('modal-code').value.trim() || '';
+            const adminPass = getAdminPassword();
+
+            if (pass !== adminPass) {
+                alert('Senha incorreta.');
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9\-]{1,20}$/.test(code)) {
+                alert('Código inválido. Use até 20 caracteres alfanuméricos ou hífen.');
+                return;
+            }
+
+            // Registrar seleção e código na sessão
+            nomeTeca = _pendingUser || nomeTeca;
+            sessionStorage.setItem('nomeTeca', nomeTeca);
+            sessionStorage.setItem('teca_user_code', code);
+            const inputNome = document.getElementById('nome-teca');
+            if (inputNome) inputNome.value = nomeTeca;
+            const inputCh = document.getElementById('input-chamada');
+            if (inputCh) inputCh.value = nomeTeca;
+
+            closeUserModal();
+            irPara('tela-intro');
+        }
 
         function salvarNomeTeca(nome) {
             nomeTeca = nome.trim();
@@ -325,8 +423,8 @@
                     perguntasDinamicas = JSON.parse(cached);
                     mostrarPergunta();
                     return;
-                } catch(e) { 
-                    sessionStorage.removeItem(cacheKey); 
+                } catch (e) {
+                    sessionStorage.removeItem(cacheKey);
                     localStorage.removeItem(cacheKey);
                 }
             }
@@ -359,18 +457,18 @@
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        prompt: `[SISTEMA_PERGUNTAS] Tema: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`, 
+                    body: JSON.stringify({
+                        prompt: `[SISTEMA_PERGUNTAS] Tema: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`,
                         nome: nomeTeca,
                         preferredModels: obterModelosParaUso()
                     })
                 });
                 const data = await res.json();
-                
+
                 if (data.result) {
                     let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
                     let parsed = JSON.parse(jsonStr);
-                    
+
                     if (Array.isArray(parsed) && parsed.length === 4) {
                         perguntasDinamicas = parsed;
                         sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
@@ -384,7 +482,7 @@
                 if (data.code === "SHELF_BUSY") throw new Error(data.error);
                 throw new Error("A Teca não conseguiu organizar os cartões agora.");
 
-            } catch(e) {
+            } catch (e) {
                 console.error('Erro Fluxo:', e);
                 if (tentativa < 2 && !e.message.includes('estante')) {
                     setTimeout(() => {
@@ -454,14 +552,14 @@
       `;
 
             try {
-                const docRef = respostas.map((r, i) => `(Pergunta ${i+1}): ${r.pergunta} - (Resposta do Aluno ${i+1}): ${r.resposta}`).join(' | ');
+                const docRef = respostas.map((r, i) => `(Pergunta ${i + 1}): ${r.pergunta} - (Resposta do Aluno ${i + 1}): ${r.resposta}`).join(' | ');
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: `[SISTEMA_ANALISE] Respostas do aluno:\n${docRef}`, nome: nomeTeca })
                 });
                 const data = await res.json();
-                
+
                 let analise = "";
                 if (data.result) {
                     analise = `
@@ -478,7 +576,7 @@
                     ${analise}
                     <p style="margin-top: 20px; font-weight: bold;">Deseja enviar seu relatório finalizado?</p>
                 `;
-            } catch(e) {
+            } catch (e) {
                 document.getElementById("fluxo").innerHTML = `
                     <h3>Relatório pronto</h3>
                     ${resumo}
@@ -598,22 +696,57 @@
 
             const logs = JSON.parse(localStorage.getItem('teca_logs') || '[]');
 
-            const blocoIA = logs.length
-                ? logs.map(l => `
-          <div class="admin-row">
-            <strong>${l.nome}</strong> - ${new Date(l.data).toLocaleString()}<br>
-            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-            <em>Resposta:</em> ${l.resposta}
-          </div>
-        `).join('')
-                : '<p>Nenhuma interação registrada nesta sessão/navegador.</p>';
+            // Agrupar logs por usuário (Isis / Maya / Outros)
+            const users = ['Isis', 'Maya'];
+            const grouped = {};
+            users.forEach(u => grouped[u] = []);
+            grouped['Outros'] = [];
+
+            logs.forEach(l => {
+                const name = l.nome || 'Anonimo';
+                if (users.includes(name)) grouped[name].push(l);
+                else grouped['Outros'].push(l);
+            });
+
+            const blocoPorUsuario = users.map(u => `
+                <h4>${u} (${grouped[u].length})</h4>
+                ${grouped[u].length ? grouped[u].map(l => `
+                    <div class="admin-row">
+                        <strong>${new Date(l.data).toLocaleString()}</strong><br>
+                        <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                        <em>Resposta:</em> ${l.resposta}
+                    </div>
+                `).join('') : '<p>Nenhuma interação registrada.</p>'}
+            `).join('') + `
+            <h4>Outros (${grouped['Outros'].length})</h4>
+            ${grouped['Outros'].length ? grouped['Outros'].map(l => `
+                <div class="admin-row">
+                    <strong>${l.nome}</strong> - ${new Date(l.data).toLocaleString()}<br>
+                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                    <em>Resposta:</em> ${l.resposta}
+                </div>
+            `).join('') : '<p>Nenhuma interação registrada.</p>'}
+            `;
+
+            // Configurações do admin (senha)
+            const currentAdminPass = getAdminPassword();
 
             document.getElementById('admin-content').innerHTML = `
+        <h3>Configurações do Admin</h3>
+        <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px;">
+            <label style="font-size:13px; color:#8b949e;">Senha atual (padrão se não definida):</label>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <input id="admin-password" class="teca-input" type="text" value="${currentAdminPass}" style="flex:1;">
+                <button onclick="saveAdminPassword(document.getElementById('admin-password').value)">Salvar</button>
+            </div>
+            <p style="font-size:12px; color:#8b949e; margin-top:8px;">Dica: escolha uma senha segura. Está armazenada no navegador.</p>
+        </div>
+
         <h3>Relatórios enviados</h3>
         ${relatorios || '<p>Nenhum relatório encontrado.</p>'}
 
-        <h3 style="margin-top:30px;">Interações com a Professora Teca</h3>
-        ${blocoIA}
+        <h3 style="margin-top:30px;">Interações com a Professora Teca (por usuário)</h3>
+        ${blocoPorUsuario}
       `;
         }
 
