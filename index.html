@@ -238,6 +238,26 @@
             <button style="width:120px;" onclick="logoutUser()">Sair</button>
         </div>
 
+        <!-- Tela pública de atividade (acessível via ?atividade=id) -->
+        <div id="tela-atividade" class="container hidden" style="max-width:700px;">
+            <h2 id="atividade-title">Atividade</h2>
+            <div id="atividade-desc" class="explanation-text" style="margin-bottom:12px;"></div>
+
+            <div id="atividade-attachments" style="margin-bottom:8px;"></div>
+
+            <div style="margin-top:8px;">
+                <label>Seu nome (ou selecione):</label>
+                <input id="resp-nome" class="teca-input" placeholder="Seu nome">
+                <label>Sua resposta (texto)</label>
+                <textarea id="resp-text" rows="5" class="teca-input" placeholder="Escreva sua resposta..."></textarea>
+                <label>Anexo / foto (opcional)</label>
+                <input id="resp-file" type="file" accept="image/*" style="margin-top:6px;">
+                <button onclick="submitActivityResponse()">Enviar resposta</button>
+            </div>
+
+            <div id="atividade-feedback" style="margin-top:12px;"></div>
+        </div>
+
         <div id="tela-chamada" class="container" style="text-align: center;">
             <div style="font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite;">👩‍🏫</div>
             <h2 style="color: var(--primary);">Chamada do Laboratório!</h2>
@@ -958,6 +978,107 @@
         function carregarAdmin() { renderNumbers(); renderActivities(); }
 
         window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
+
+        // --- Helpers de rota / atividade pública ---
+        function getQueryParam(name){ const url = new URL(window.location.href); return url.searchParams.get(name); }
+
+        async function loadPublicActivityIfAny(){
+            const aid = getQueryParam('atividade');
+            if(!aid) return;
+            const act = getActivities().find(a=>a.id===aid);
+            if(!act){ document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
+            // mostrar conteúdo
+            document.getElementById('atividade-title').innerText = act.title;
+            document.getElementById('atividade-desc').innerText = act.desc;
+            const attaches = document.getElementById('atividade-attachments'); attaches.innerHTML = '';
+            if(act.attachments && act.attachments.length){ act.attachments.forEach(att=>{ const a = document.createElement('a'); a.href = att.data || att.url; a.target='_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
+            // preencher nome se disponível
+            const name = sessionStorage.getItem('nomeTeca') || ''; if(name) document.getElementById('resp-nome').value = name;
+            irPara('tela-atividade');
+        }
+
+        // Upload com tentativa no Supabase e fallback para dataURL
+        async function uploadFileWithFallback(file){
+            if(!file) return null;
+            const MAX = 5 * 1024 * 1024; // 5MB
+            if(file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
+
+            // tentar supabase (requere bucket 'attachments' configurado)
+            try{
+                if(window._supabase && _supabase.storage){
+                    const path = `attachments/${Date.now()}_${file.name}`;
+                    const { error } = await _supabase.storage.from('attachments').upload(path, file);
+                    if(!error){
+                        const publicUrl = _supabase.storage.from('attachments').getPublicUrl(path).publicUrl;
+                        return { url: publicUrl, name: file.name };
+                    }
+                }
+            }catch(e){ console.warn('Supabase upload falhou, fallback:', e); }
+
+            // fallback: dataURL
+            return await new Promise((resolve,reject)=>{
+                const r=new FileReader(); r.onload=()=>resolve({ data: r.result, name: file.name }); r.onerror=()=>reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
+            });
+        }
+
+        async function submitActivityResponse(){
+            const aid = getQueryParam('atividade');
+            if(!aid) return alert('Atividade inválida');
+            const act = getActivities().find(a=>a.id===aid); if(!act) return alert('Atividade não encontrada');
+            const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
+            const texto = (document.getElementById('resp-text').value || '').trim();
+            const fileInput = document.getElementById('resp-file');
+            if(!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
+
+            const resp = { id: 'r_'+Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
+
+            if(fileInput && fileInput.files && fileInput.files[0]){
+                try{
+                    const uploaded = await uploadFileWithFallback(fileInput.files[0]);
+                    resp.imagens.push(uploaded);
+                }catch(e){ return alert('Erro no upload: '+e.message); }
+            }
+
+            act.responses = act.responses || [];
+            act.responses.push(resp);
+            act.status = act.status === 'enviada' ? 'em execução' : (act.status || 'em execução');
+            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected||1)) * 100));
+            saveOne(act);
+
+            document.getElementById('atividade-feedback').innerText = 'Resposta enviada com sucesso. Obrigada!';
+
+            // chamada de avaliação IA (pode consumir tokens) — executar, salvar resultado
+            try{ const idx = act.responses.findIndex(r=>r.id===resp.id); if(idx>=0) await analyzeResponse(act.id, idx); } catch(e){ console.warn('Avaliação automática falhou', e); }
+        }
+
+        // Gerar link público e marcar como enviada
+        function generateActivityLink(activityId){ const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
+
+        function sendActivityAsLink(activityId){ const act = getActivities().find(a=>a.id===activityId); if(!act) return; const url = generateActivityLink(activityId);
+            // salvar link meta
+            const linksKey = 'teca_activity_links';
+            const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
+            links.push({ id: 'l_'+Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
+            act.status = 'enviada'; act.sent_at = Date.now(); saveOne(act); navigator.clipboard && navigator.clipboard.writeText(url);
+            alert('Link copiado para a área de transferência e atividade marcada como enviada.'); renderActivities(); renderTaskStates();
+        }
+
+        // Render lista centralizada de tarefas/submissões para admin
+        function renderTasks(){ const container = document.getElementById('admin-content'); if(!container) return; const acts = getActivities();
+            const rows = [];
+            acts.forEach(act=>{
+                (act.responses||[]).forEach(r=>{
+                    rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final||null) : null, resumo: r.analysis ? (r.analysis.resumo_admin||'') : '' });
+                });
+            });
+            if(!rows.length){ container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
+            container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r=>{
+                return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score||'—'}<br><small>Enviada: ${r.submittedAt? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
+            }).join('');
+        }
+
+        // Atualizar renderizações periódicas
+        window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
 
         let ultimaSelecao = "";
         function analisarSelecao() {
