@@ -17,36 +17,70 @@
         }
 
         function showUserLogs(user) {
-            const grouped = window._adminGroupedLogs || {};
-            const container = document.getElementById('admin-logs');
-            if (!container) return;
-            if (user === 'All') {
-                const users = Object.keys(grouped);
-                container.innerHTML = users.map(u => `
-                    <h4>${u} (${(grouped[u]||[]).length})</h4>
-                    ${(grouped[u]||[]).length ? (grouped[u]||[]).map(l => `
-                        <div class="admin-row">
-                            <strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br>
-                            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                            <em>Resposta:</em> ${l.resposta}
-                        </div>
-                    `).join('') : '<p>Nenhuma interação registrada.</p>'}
-                `).join('');
+            const grouped=window._adminGroupedLogs || {}
+
+            ;
+            const container=document.getElementById('admin-logs');
+            if ( !container) return;
+
+            if (user==='All') {
+                const users=Object.keys(grouped);
+
+                container.innerHTML=users.map(u=> ` <h4>$ {
+                        u
+                    }
+
+                    ($ {
+                            (grouped[u]||[]).length
+
+                        })</h4> $ {
+                        (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
+                                l.nome || ''
+                            }
+
+                            - $ {
+                                new Date(l.data).toLocaleString()
+                            }
+
+                            </strong><br> <em>Pergunta/seleção:</em> $ {
+                                l.pergunta
+                            }
+
+                            <br> <em>Resposta:</em> $ {
+                                l.resposta
+                            }
+
+                            </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
+                    }
+
+                    `).join('');
                 return;
             }
 
-            const list = grouped[user] || [];
-            if (!list.length) {
-                container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
+            const list=grouped[user] || [];
+
+            if ( !list.length) {
+                container.innerHTML=`<p>Nenhuma interação registrada para $ {
+                    user
+                }
+
+                .</p>`;
                 return;
             }
-            container.innerHTML = list.map(l => `
-                <div class="admin-row">
-                    <strong>${new Date(l.data).toLocaleString()}</strong><br>
-                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                    <em>Resposta:</em> ${l.resposta}
-                </div>
-            `).join('');
+
+            container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
+                    new Date(l.data).toLocaleString()
+                }
+
+                </strong><br> <em>Pergunta/seleção:</em> $ {
+                    l.pergunta
+                }
+
+                <br> <em>Resposta:</em> $ {
+                    l.resposta
+                }
+
+                </div> `).join('');
         }
 
         /* showUserLogs is injected later in the script; no inline JS inside <style> */
@@ -200,8 +234,7 @@
 
         <div id="user-banner" class="container hidden"
             style="max-width:650px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:14px;color:#8b949e;">Logado: <strong id="banner-name"></strong> — Código: <span
-                    id="banner-code"></span></div>
+            <div style="font-size:14px;color:#8b949e;">Logado: <strong id="banner-name"></strong></div>
             <button style="width:120px;" onclick="logoutUser()">Sair</button>
         </div>
 
@@ -223,10 +256,9 @@
         <div id="user-entry-modal" class="container hidden"
             style="max-width:480px; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9999;">
             <h3 id="modal-title">Entrar</h3>
-            <p style="color:#8b949e;">Para prosseguir como <strong id="selected-user">usuário</strong>, informe a senha
-                e um código alfanumérico.</p>
+            <p style="color:#8b949e;">Para prosseguir como <strong id="selected-user">usuário</strong>, informe a senha.
+            </p>
             <input id="modal-password" class="teca-input" type="password" placeholder="Senha segura">
-            <input id="modal-code" class="teca-input" type="text" placeholder="Código alfanumérico (ex: A12B3)">
             <div style="display:flex; gap:8px;">
                 <button onclick="submitUserEntry()">Entrar</button>
                 <button onclick="closeUserModal()" style="background:#333; color:#c9d1d9;">Cancelar</button>
@@ -338,7 +370,6 @@
             _pendingUser = name;
             document.getElementById('selected-user').innerText = name;
             document.getElementById('modal-password').value = '';
-            document.getElementById('modal-code').value = '';
             document.getElementById('user-entry-modal').classList.remove('hidden');
         }
 
@@ -349,7 +380,6 @@
 
         function submitUserEntry() {
             const pass = document.getElementById('modal-password').value || '';
-            const code = document.getElementById('modal-code').value.trim() || '';
 
             if (!_pendingUser) return alert('Usuário não selecionado.');
 
@@ -365,22 +395,12 @@
                 alert('Senha incorreta para ' + _pendingUser + '.');
                 return;
             }
-
-            if (!/^[a-zA-Z0-9\-]{1,20}$/.test(code)) {
-                alert('Código inválido. Use até 20 caracteres alfanuméricos ou hífen.');
-                return;
-            }
-
-            // Registrar seleção e código na sessão
+            // Registrar seleção na sessão (apenas nome)
             nomeTeca = _pendingUser;
             sessionStorage.setItem('nomeTeca', nomeTeca);
-            sessionStorage.setItem('teca_user_code', code);
             const inputNome = document.getElementById('nome-teca');
             if (inputNome) inputNome.value = nomeTeca;
-
-            // Mostrar banner de confirmação
-            showUserBanner(nomeTeca, code);
-
+            showUserBanner(nomeTeca);
             closeUserModal();
             irPara('tela-intro');
         }
@@ -390,11 +410,10 @@
             sessionStorage.setItem('nomeTeca', nomeTeca);
         }
 
-        function showUserBanner(name, code) {
+        function showUserBanner(name) {
             const banner = document.getElementById('user-banner');
             if (!banner) return;
             document.getElementById('banner-name').innerText = name || '';
-            document.getElementById('banner-code').innerText = code || '';
             banner.classList.remove('hidden');
         }
 
@@ -405,7 +424,6 @@
 
         function logoutUser() {
             sessionStorage.removeItem('nomeTeca');
-            sessionStorage.removeItem('teca_user_code');
             nomeTeca = '';
             hideUserBanner();
             location.reload();
@@ -463,8 +481,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             carregarModelos();
             const name = sessionStorage.getItem('nomeTeca');
-            const code = sessionStorage.getItem('teca_user_code');
-            if (name && code) showUserBanner(name, code);
+            if (name) showUserBanner(name);
         });
 
         let etapa = 0;
@@ -472,6 +489,93 @@
         let temaAtual = "";
         let perguntasDinamicas = [];
         let carregandoPerguntas = false;
+
+        // --- Pool de perguntas por tema (localStorage) ---
+        function poolKey(tema) { return `perguntas_pool_${tema}`; }
+        function getPerguntasPool(tema) {
+            try { return JSON.parse(localStorage.getItem(poolKey(tema)) || '[]'); } catch (e) { return []; }
+        }
+        function savePerguntasPool(tema, pool) {
+            try {
+                // limitar a 30
+                const trimmed = (pool || []).slice(0, 30);
+                localStorage.setItem(poolKey(tema), JSON.stringify(trimmed));
+            } catch (e) { console.error('Erro salvar pool', e); }
+        }
+
+        // --- Deduplicação robusta ---
+        function normalizeText(t) {
+            if (!t) return '';
+            // remover acentos, lower, remover pontuação, colapsar espaços
+            try {
+                t = t.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+            } catch (e) { /* fallback se normalize não suportar */ }
+            return t.toString().trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+        }
+
+        function levenshtein(a, b) {
+            a = a || ''; b = b || '';
+            const al = a.length, bl = b.length;
+            if (al === 0) return bl;
+            if (bl === 0) return al;
+            const dp = Array.from({ length: al + 1 }, () => new Array(bl + 1));
+            for (let i = 0; i <= al; i++) dp[i][0] = i;
+            for (let j = 0; j <= bl; j++) dp[0][j] = j;
+            for (let i = 1; i <= al; i++) {
+                for (let j = 1; j <= bl; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+                }
+            }
+            return dp[al][bl];
+        }
+
+        function isDuplicateInPool(pool, text) {
+            const n = normalizeText(text);
+            if (!n) return true;
+            for (const p of pool) {
+                const other = normalizeText(p.pergunta || p);
+                if (!other) continue;
+                if (n === other) return true;
+                const maxLen = Math.max(n.length, other.length);
+                if (maxLen === 0) continue;
+                const dist = levenshtein(n, other);
+                const similarity = 1 - (dist / maxLen);
+                if (similarity >= 0.85) return true; // 85% similar considered duplicate
+            }
+            return false;
+        }
+
+        async function fetchPerguntasFromAI(tema, count = 4) {
+            try {
+                const res = await fetch('/api/ai', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: `[SISTEMA_PERGUNTAS] Tema: ${tema}`, nome: nomeTeca, preferredModels: obterModelosParaUso() })
+                });
+                const data = await res.json();
+                if (data.result) {
+                    let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
+                    let parsed = JSON.parse(jsonStr);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(p => ({ pergunta: p, source: 'ai', used: false, createdAt: Date.now() }));
+                    }
+                }
+            } catch (e) { console.warn('fetchPerguntasFromAI failed', e); }
+            return [];
+        }
+
+        function markPerguntaUsedInPool(tema, perguntaText) {
+            const pool = getPerguntasPool(tema);
+            const idx = pool.findIndex(p => !p.used && p.pergunta === perguntaText);
+            if (idx >= 0) { pool[idx].used = true; savePerguntasPool(tema, pool); }
+        }
+
+        // Retorna perguntas não usadas do pool (somente leitura). O preenchimento via IA é feito diretamente no fluxo.
+        async function selectQuestionsFromPool(temaId, want = 4) {
+            const pool = getPerguntasPool(temaId) || [];
+            const unused = pool.filter(p => !p.used);
+            return unused.slice(0, want);
+        }
 
         async function iniciarFluxo(tentativa = 1) {
             if (carregandoPerguntas) return;
@@ -488,25 +592,10 @@
                 return;
             }
 
-            // 1. Verificar Cache (Session e Local)
-            const cacheKey = `perguntas_teca_${temaAtual}`;
-            let cached = sessionStorage.getItem(cacheKey) || localStorage.getItem(cacheKey);
-            if (cached) {
-                try {
-                    perguntasDinamicas = JSON.parse(cached);
-                    mostrarPergunta();
-                    return;
-                } catch (e) {
-                    sessionStorage.removeItem(cacheKey);
-                    localStorage.removeItem(cacheKey);
-                }
-            }
-
-            // 2. Verificar Cooldown
+            // 1. Tentar sempre obter perguntas novas da IA primeiro; se falhar, usar pool como fallback
             const cooldownKey = `teca_retry_bloqueado_${temaAtual}`;
             const bloqueio = localStorage.getItem(cooldownKey);
             if (bloqueio && Date.now() < parseInt(bloqueio)) {
-                const minutosRestantes = Math.ceil((parseInt(bloqueio) - Date.now()) / 60000);
                 document.getElementById("fluxo").innerHTML = `
                     <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
                         <p>A estante da Teca está muito disputada agora. Ela deixou os cartões pausados por alguns minutos 📚</p>
@@ -517,7 +606,6 @@
                 return;
             }
 
-            // 3. Chamar API
             carregandoPerguntas = true;
             document.getElementById("fluxo").innerHTML = `
                 <div style="text-align:center; padding:20px;">
@@ -527,65 +615,66 @@
             `;
 
             try {
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: `[SISTEMA_PERGUNTAS] Tema: ${document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text}`,
-                        nome: nomeTeca,
-                        preferredModels: obterModelosParaUso()
-                    })
-                });
-                const data = await res.json();
+                const sel = document.getElementById('tema');
+                const displayText = sel.options[sel.selectedIndex].text;
 
-                if (data.result) {
-                    let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
-                    let parsed = JSON.parse(jsonStr);
-
-                    if (Array.isArray(parsed) && parsed.length === 4) {
-                        perguntasDinamicas = parsed;
-                        sessionStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
-                        localStorage.setItem(cacheKey, JSON.stringify(perguntasDinamicas));
-                        mostrarPergunta();
-                        return;
-                    }
+                // Tenta obter novas perguntas via IA
+                let novas = [];
+                try {
+                    novas = await fetchPerguntasFromAI(displayText, 4);
+                } catch (e) {
+                    console.warn('Falha ao obter perguntas da IA:', e);
                 }
 
-                if (data.meta && data.meta.model) bloquearModelo(data.meta.model);
-                if (data.code === "SHELF_BUSY") throw new Error(data.error);
-                throw new Error("A Teca não conseguiu organizar os cartões agora.");
+                if (novas && novas.length) {
+                    // Usar perguntas novas SEM salvar no pool (pool é reserva apenas em falhas)
+                    perguntasDinamicas = novas.slice(0, 4);
+                    mostrarPergunta();
+                    return;
+                }
+
+                // Se IA não retornou, usar pool local como fallback
+                const poolUnused = await selectQuestionsFromPool(temaAtual, 4);
+                if (poolUnused && poolUnused.length) {
+                    perguntasDinamicas = poolUnused.slice(0, 4);
+                    mostrarPergunta();
+                    return;
+                }
+
+                // Nenhuma pergunta disponível → ativa cooldown e mostra mensagem
+                localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
+                document.getElementById("fluxo").innerHTML = `
+                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
+                        <p>A Teca não conseguiu organizar os cartões agora. Tente novamente mais tarde.</p>
+                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo</button>
+                    </div>
+                `;
 
             } catch (e) {
-                console.error('Erro Fluxo:', e);
-                if (tentativa < 2 && !e.message.includes('estante')) {
-                    setTimeout(() => {
-                        carregandoPerguntas = false;
-                        iniciarFluxo(tentativa + 1);
-                    }, 1500);
-                } else {
-                    // Ativa Cooldown de 5 minutos
-                    localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
-                    document.getElementById("fluxo").innerHTML = `
-                        <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                            <p>${e.message.includes('estante') ? e.message : 'A estante da Teca está muito disputada agora. Ela deixou os cartões pausados por alguns minutos 📚'}</p>
-                            <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Vasculhar arquivos novamente</button>
-                        </div>
-                    `;
-                }
+                console.error('Erro Fluxo (fallback):', e);
+                localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
+                document.getElementById("fluxo").innerHTML = `
+                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
+                        <p>Ocorreu um erro ao organizar os cartões. Tente novamente mais tarde.</p>
+                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo</button>
+                    </div>
+                `;
             } finally {
                 carregandoPerguntas = false;
             }
         }
 
         function mostrarPergunta() {
-            const pergunta = perguntasDinamicas[etapa];
+            const pObj = perguntasDinamicas[etapa];
+            const perguntaTexto = pObj ? pObj.pergunta : '';
+            const marca = (pObj && pObj.source === 'ai') ? '* ' : '';
 
             document.getElementById("fluxo").innerHTML = `
-        <span class="step-label">Pergunta ${etapa + 1} de ${perguntasDinamicas.length}</span>
-        <p>${pergunta}</p>
-        <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta cientista..."></textarea>
-        <button type="button" onclick="proximaPergunta()">Próxima</button>
-      `;
+                <span class="step-label">Pergunta ${etapa + 1} de ${perguntasDinamicas.length}</span>
+                <p>${marca}${perguntaTexto}</p>
+                <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta cientista..."></textarea>
+                <button type="button" onclick="proximaPergunta()">Próxima</button>
+            `;
         }
 
         function proximaPergunta() {
@@ -596,10 +685,13 @@
                 return;
             }
 
-            respostas.push({
-                pergunta: perguntasDinamicas[etapa],
-                resposta
-            });
+            const pObj = perguntasDinamicas[etapa];
+            const perguntaTexto = pObj ? pObj.pergunta : perguntasDinamicas[etapa];
+
+            respostas.push({ pergunta: perguntaTexto, resposta });
+
+            // marcar como usada no pool
+            try { markPerguntaUsedInPool(temaAtual || document.getElementById('tema').value, perguntaTexto); } catch (e) { }
 
             etapa++;
 
