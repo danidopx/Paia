@@ -17,72 +17,39 @@
         }
 
         function showUserLogs(user) {
-            const grouped=window._adminGroupedLogs || {}
-
-            ;
-            const container=document.getElementById('admin-logs');
-            if ( !container) return;
-
-            if (user==='All') {
-                // render all groups
-                const users=Object.keys(grouped);
-
-                container.innerHTML=users.map(u=> ` <h4>$ {
-                        u
-                    }
-
-                    ($ {
-                            (grouped[u]||[]).length
-
-                        })</h4> $ {
-                        (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
-                                l.nome || ''
-                            }
-
-                            - $ {
-                                new Date(l.data).toLocaleString()
-                            }
-
-                            </strong><br> <em>Pergunta/seleção:</em> $ {
-                                l.pergunta
-                            }
-
-                            <br> <em>Resposta:</em> $ {
-                                l.resposta
-                            }
-
-                            </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
-                    }
-
-                    `).join('');
+            const grouped = window._adminGroupedLogs || {};
+            const container = document.getElementById('admin-logs');
+            if (!container) return;
+            if (user === 'All') {
+                const users = Object.keys(grouped);
+                container.innerHTML = users.map(u => `
+                    <h4>${u} (${(grouped[u]||[]).length})</h4>
+                    ${(grouped[u]||[]).length ? (grouped[u]||[]).map(l => `
+                        <div class="admin-row">
+                            <strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br>
+                            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                            <em>Resposta:</em> ${l.resposta}
+                        </div>
+                    `).join('') : '<p>Nenhuma interação registrada.</p>'}
+                `).join('');
                 return;
             }
 
-            const list=grouped[user] || [];
-
-            if ( !list.length) {
-                container.innerHTML=`<p>Nenhuma interação registrada para $ {
-                    user
-                }
-
-                .</p>`;
+            const list = grouped[user] || [];
+            if (!list.length) {
+                container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
                 return;
             }
-
-            container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
-                    new Date(l.data).toLocaleString()
-                }
-
-                </strong><br> <em>Pergunta/seleção:</em> $ {
-                    l.pergunta
-                }
-
-                <br> <em>Resposta:</em> $ {
-                    l.resposta
-                }
-
-                </div> `).join('');
+            container.innerHTML = list.map(l => `
+                <div class="admin-row">
+                    <strong>${new Date(l.data).toLocaleString()}</strong><br>
+                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
+                    <em>Resposta:</em> ${l.resposta}
+                </div>
+            `).join('');
         }
+
+        /* showUserLogs is injected later in the script; no inline JS inside <style> */
 
         body {
             font-family: 'Inter', sans-serif;
@@ -230,6 +197,13 @@
 <body onmouseup="analisarSelecao()" ontouchend="setTimeout(analisarSelecao, 500)">
 
     <div id="app">
+
+        <div id="user-banner" class="container hidden"
+            style="max-width:650px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:14px;color:#8b949e;">Logado: <strong id="banner-name"></strong> — Código: <span
+                    id="banner-code"></span></div>
+            <button style="width:120px;" onclick="logoutUser()">Sair</button>
+        </div>
 
         <div id="tela-chamada" class="container" style="text-align: center;">
             <div style="font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite;">👩‍🏫</div>
@@ -404,6 +378,9 @@
             const inputNome = document.getElementById('nome-teca');
             if (inputNome) inputNome.value = nomeTeca;
 
+            // Mostrar banner de confirmação
+            showUserBanner(nomeTeca, code);
+
             closeUserModal();
             irPara('tela-intro');
         }
@@ -411,6 +388,27 @@
         function salvarNomeTeca(nome) {
             nomeTeca = nome.trim();
             sessionStorage.setItem('nomeTeca', nomeTeca);
+        }
+
+        function showUserBanner(name, code) {
+            const banner = document.getElementById('user-banner');
+            if (!banner) return;
+            document.getElementById('banner-name').innerText = name || '';
+            document.getElementById('banner-code').innerText = code || '';
+            banner.classList.remove('hidden');
+        }
+
+        function hideUserBanner() {
+            const banner = document.getElementById('user-banner');
+            if (!banner) return; banner.classList.add('hidden');
+        }
+
+        function logoutUser() {
+            sessionStorage.removeItem('nomeTeca');
+            sessionStorage.removeItem('teca_user_code');
+            nomeTeca = '';
+            hideUserBanner();
+            location.reload();
         }
 
         function irPara(id) {
@@ -462,7 +460,12 @@
             localStorage.setItem(MODEL_BLOCK_KEY, JSON.stringify(bloqueados));
         }
 
-        window.addEventListener('DOMContentLoaded', carregarModelos);
+        window.addEventListener('DOMContentLoaded', () => {
+            carregarModelos();
+            const name = sessionStorage.getItem('nomeTeca');
+            const code = sessionStorage.getItem('teca_user_code');
+            if (name && code) showUserBanner(name, code);
+        });
 
         let etapa = 0;
         let respostas = [];
@@ -810,7 +813,7 @@
         <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; gap:12px; align-items:center;">
             <div style="flex:1;">
                 <label style="font-size:13px; color:#8b949e;">Senha Admin (padrão: dopj1982):</label>
-                <input id="admin-password" class="teca-input" type="text" value="${currentAdminPass}" style="margin-top:8px;">
+                <input id="admin-password" class="teca-input" type="password" value="${currentAdminPass}" style="margin-top:8px;">
             </div>
             <div style="display:flex; flex-direction:column; gap:8px;">
                 <button style="width:140px;" onclick="saveAdminPassword(document.getElementById('admin-password').value)">Salvar Admin</button>
