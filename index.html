@@ -301,10 +301,38 @@
 
         </div>
 
-        <div id="tela-admin" class="container hidden" style="max-width: 850px;">
+        <div id="tela-admin" class="container hidden" style="max-width: 950px;">
             <h2>Dashboard do Supervisor</h2>
-            <div id="admin-content"></div>
-            <button onclick="location.href='index.html'">Sair do Admin</button>
+            <div style="display:flex; gap:16px;">
+                <div style="flex:1; min-width:300px;">
+                    <h4>1) Telefones / Contatos (WhatsApp)</h4>
+                    <div style="display:flex; gap:8px;">
+                        <input id="new-number" class="teca-input" placeholder="Número (ex: +5511999998888)">
+                        <button onclick="addNumber()" style="width:120px;">Adicionar</button>
+                    </div>
+                    <div id="numbers-list" style="margin-top:12px;"></div>
+
+                    <hr style="margin:12px 0;">
+
+                    <h4>2) Criar atividade</h4>
+                    <input id="act-title" class="teca-input" placeholder="Título da atividade">
+                    <textarea id="act-desc" rows="3" class="teca-input" placeholder="Descrição / instruções"></textarea>
+                    <div style="display:flex; gap:8px;">
+                        <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)" style="flex:1">
+                        <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)"
+                            style="width:140px">
+                    </div>
+                    <input id="act-attachment" type="file" style="margin-top:8px;">
+                    <button onclick="createActivity()">Criar atividade</button>
+                </div>
+
+                <div style="flex:1.2; min-width:350px;">
+                    <h4>3) Atividades</h4>
+                    <div id="activities-list"></div>
+                </div>
+            </div>
+            <div style="margin-top:10px; text-align:right;"><button onclick="location.href='index.html'">Sair do
+                    Admin</button></div>
         </div>
 
     </div>
@@ -798,6 +826,138 @@
                 status.style.display = 'none';
             }
         }
+
+        // ---------------- Admin helpers ----------------
+        function numbersKey() { return 'teca_numbers'; }
+        function getNumbers() { try { return JSON.parse(localStorage.getItem(numbersKey()) || '[]'); } catch (e) { return [] } }
+        function saveNumbers(list) { localStorage.setItem(numbersKey(), JSON.stringify(list)); renderNumbers(); }
+        function addNumber() {
+            const v = document.getElementById('new-number').value.trim();
+            if (!v) return alert('Informe um número.');
+            const list = getNumbers();
+            if (list.includes(v)) return alert('Número já cadastrado.');
+            list.push(v); saveNumbers(list); document.getElementById('new-number').value = '';
+        }
+        function removeNumber(n) { const list = getNumbers().filter(x => x !== n); saveNumbers(list); }
+        function renderNumbers() { const container = document.getElementById('numbers-list'); if (!container) return; const list = getNumbers(); if (!list.length) container.innerHTML = '<p style="color:#8b949e">Nenhum número cadastrado.</p>'; else container.innerHTML = list.map(n => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="flex:1">${n}</div><button onclick="(function(n){removeNumber(n)})('${encodeURIComponent('{{N}}')}')" style="width:80px;background:#333;color:#fff">Remover</button></div>`.replace('{{N}}', n)).join(''); }
+
+        // Activities stored in localStorage
+        function activitiesKey() { return 'teca_activities'; }
+        function getActivities() { try { return JSON.parse(localStorage.getItem(activitiesKey()) || '[]') } catch (e) { return [] } }
+        function saveActivities(list) { localStorage.setItem(activitiesKey(), JSON.stringify(list)); renderActivities(); renderTaskStates(); }
+
+        function createActivity() {
+            const title = document.getElementById('act-title').value.trim();
+            const desc = document.getElementById('act-desc').value.trim();
+            const theme = document.getElementById('act-theme').value.trim() || 'geral';
+            const expected = parseInt(document.getElementById('act-expected').value) || 1;
+            if (!title) return alert('Título obrigatório');
+            const fileInput = document.getElementById('act-attachment');
+            const activity = { id: 'act_' + Date.now(), title, desc, theme, expected, numbers: getNumbers(), attachments: [], responses: [], createdAt: Date.now(), startedAt: null, progress: 0, winner: null };
+
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const f = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => { activity.attachments.push({ name: f.name, data: e.target.result }); const list = getActivities(); list.unshift(activity); saveActivities(list); clearActivityForm(); };
+                reader.readAsDataURL(f);
+            } else {
+                const list = getActivities(); list.unshift(activity); saveActivities(list); clearActivityForm();
+            }
+        }
+
+        function clearActivityForm() { document.getElementById('act-title').value = ''; document.getElementById('act-desc').value = ''; document.getElementById('act-theme').value = ''; document.getElementById('act-expected').value = ''; document.getElementById('act-attachment').value = ''; }
+
+        function renderActivities() {
+            const container = document.getElementById('activities-list'); if (!container) return; const list = getActivities(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma atividade criada.</p>'; return; }
+            container.innerHTML = list.map(act => {
+                const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—';
+                return `
+                <div class="admin-row">
+                    <strong>${act.title}</strong> <br>
+                    <small>${act.desc}</small><br>
+                    <em>Tema:</em> ${act.theme} • <em>Respostas esperadas:</em> ${act.expected} • <em>Iniciado:</em> ${started} • <em>Progresso:</em> ${act.progress}%<br>
+                    <div style="margin-top:8px; display:flex; gap:8px;">
+                        <button onclick="sendWhatsApp('${act.id}')">Enviar via WhatsApp</button>
+                        <button onclick="openActivity('${act.id}')">Abrir</button>
+                        <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function deleteActivity(id) { if (!confirm('Remover atividade?')) return; const list = getActivities().filter(a => a.id !== id); saveActivities(list); }
+
+        function openActivity(id) {
+            const act = getActivities().find(a => a.id === id); if (!act) return alert('Atividade não encontrada');
+            // mostrar modal simples via prompt/confirm for admin actions
+            const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses.length}`;
+            if (!act.startedAt) { act.startedAt = Date.now(); }
+            saveOne(act);
+            const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:');
+            if (!choice) return;
+            if (choice.startsWith('1')) return adminAddResponse(id);
+            if (choice.startsWith('2')) {
+                const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return;
+            }
+            if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; }
+            if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; saveOne(act); } return; }
+        }
+
+        function saveOne(act) { const list = getActivities(); const idx = list.findIndex(a => a.id === act.id); if (idx >= 0) list[idx] = act; else list.unshift(act); saveActivities(list); }
+
+        function adminAddResponse(activityId) {
+            const act = getActivities().find(a => a.id === activityId); if (!act) return;
+            const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo';
+            const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || '';
+            // simples: sem upload de arquivo aqui, mas pode colar dataURL
+            const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null };
+            act.responses.push(resp);
+            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
+            if (!act.startedAt) act.startedAt = Date.now();
+            saveOne(act);
+            alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.');
+        }
+
+        async function analyzeResponse(activityId, responseIndex) {
+            const act = getActivities().find(a => a.id === activityId); if (!act) return alert('Atividade não encontrada');
+            const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada');
+            // chamar api/analisar
+            try {
+                const r = await fetch('/api/analisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity: act, response: resp }) });
+                const data = await r.json();
+                if (data.evaluation) { resp.analysis = data.evaluation; saveOne(act); alert('Análise salva.'); } else { alert('Falha análise: ' + (data.error || JSON.stringify(data))); }
+            } catch (e) { alert('Erro ao analisar: ' + e.message); }
+        }
+
+        function viewAnalysis(activityId, responseIndex) {
+            const act = getActivities().find(a => a.id === activityId); if (!act) return; const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada'); if (!resp.analysis) return alert('Nenhuma análise disponível');
+            const pretty = JSON.stringify(resp.analysis, null, 2); const w = window.open('', '_blank'); w.document.write(`<pre>${pretty}</pre>`);
+        }
+
+        function sendWhatsApp(activityId) {
+            const act = getActivities().find(a => a.id === activityId); if (!act) return; const numbers = act.numbers && act.numbers.length ? act.numbers : getNumbers(); if (!numbers || !numbers.length) return alert('Nenhum número cadastrado para envio.');
+            const text = encodeURIComponent(`Atividade: ${act.title}\n${act.desc}\nResponda por texto ou envie foto.`);
+            // abrir uma aba por número (admin confirms)
+            if (!confirm('Abrir o WhatsApp Web para cada número?')) return;
+            numbers.forEach(n => { const url = `https://wa.me/${n.replace(/[^0-9+]/g, '')}?text=${text}`; window.open(url, '_blank'); });
+        }
+
+        // Render task states on initial screen (frente dos nomes)
+        function renderTaskStates() {
+            const list = getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
+            if (!list.length) { area.innerHTML = ''; return; }
+            // Mostrar primeiro 5 atividades por ordem criada
+            const shown = list.slice(0, 5);
+            area.innerHTML = '<h4 style="margin-top:8px;color:var(--primary);">Atividades</h4>' + shown.map(a => {
+                const started = a.startedAt ? new Date(a.startedAt).toLocaleDateString() : '--/--';
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #30363d;"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
+            }).join('');
+        }
+
+        // Inicialização admin
+        function carregarAdmin() { renderNumbers(); renderActivities(); }
+
+        window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
 
         let ultimaSelecao = "";
         function analisarSelecao() {
