@@ -17,38 +17,71 @@
         }
 
         function showUserLogs(user) {
-            const grouped = window._adminGroupedLogs || {};
-            const container = document.getElementById('admin-logs');
-            if (!container) return;
-            if (user === 'All') {
+            const grouped=window._adminGroupedLogs || {}
+
+            ;
+            const container=document.getElementById('admin-logs');
+            if ( !container) return;
+
+            if (user==='All') {
                 // render all groups
-                const users = Object.keys(grouped);
-                container.innerHTML = users.map(u => `
-                    <h4>${u} (${(grouped[u]||[]).length})</h4>
-                    ${(grouped[u]||[]).length ? (grouped[u]||[]).map(l => `
-                        <div class="admin-row">
-                            <strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br>
-                            <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                            <em>Resposta:</em> ${l.resposta}
-                        </div>
-                    `).join('') : '<p>Nenhuma interação registrada.</p>'}
-                `).join('');
+                const users=Object.keys(grouped);
+
+                container.innerHTML=users.map(u=> ` <h4>$ {
+                        u
+                    }
+
+                    ($ {
+                            (grouped[u]||[]).length
+
+                        })</h4> $ {
+                        (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
+                                l.nome || ''
+                            }
+
+                            - $ {
+                                new Date(l.data).toLocaleString()
+                            }
+
+                            </strong><br> <em>Pergunta/seleção:</em> $ {
+                                l.pergunta
+                            }
+
+                            <br> <em>Resposta:</em> $ {
+                                l.resposta
+                            }
+
+                            </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
+                    }
+
+                    `).join('');
                 return;
             }
 
-            const list = grouped[user] || [];
-            if (!list.length) {
-                container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
+            const list=grouped[user] || [];
+
+            if ( !list.length) {
+                container.innerHTML=`<p>Nenhuma interação registrada para $ {
+                    user
+                }
+
+                .</p>`;
                 return;
             }
 
-            container.innerHTML = list.map(l => `
-                <div class="admin-row">
-                    <strong>${new Date(l.data).toLocaleString()}</strong><br>
-                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                    <em>Resposta:</em> ${l.resposta}
-                </div>
-            `).join('');
+            container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
+                    new Date(l.data).toLocaleString()
+                }
+
+                </strong><br> <em>Pergunta/seleção:</em> $ {
+                    l.pergunta
+                }
+
+                <br> <em>Resposta:</em> $ {
+                    l.resposta
+                }
+
+                </div> `).join('');
         }
 
         body {
