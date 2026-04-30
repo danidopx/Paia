@@ -946,208 +946,283 @@
 
         async function deleteActivity(id) { if (!confirm('Remover atividade?')) return; try { if (window._supabase) { await _supabase.from('activities').delete().eq('id', id); } } catch (e) { console.warn('deleteActivity DB failed', e); } const list = (await getActivities()).filter(a => a.id !== id); localStorage.setItem(activitiesKey(), JSON.stringify(list)); await renderActivities(); }
 
-        async function openActivity(id) { const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
+        async function openActivity(id) {
+            const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
 
-        async function saveOne(act) { await saveActivityToDB(act); await renderActivities(); }
+            async function saveOne(act) { await saveActivityToDB(act); await renderActivities(); }
 
-        async function adminAddResponse(activityId) { const acts = await getActivities(); const act = acts.find(a => a.id === activityId); if (!act) return; const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo'; const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || ''; const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null, submitted_at: Date.now() }; act.responses = act.responses || []; act.responses.push(resp); act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100)); if (!act.startedAt) act.startedAt = Date.now(); await saveOne(act); alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.'); }
+            async function adminAddResponse(activityId) {
+                const acts = await getActivities();
+                const act = acts.find(a => a.id === activityId);
+                if (!act) return;
+                const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo';
+                const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || '';
+                const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null, submitted_at: Date.now() };
+                act.responses = act.responses || [];
+                act.responses.push(resp);
+                act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
+                if (!act.startedAt) act.startedAt = Date.now();
 
-        async function analyzeResponse(activityId, responseIndex) {
-            const act = getActivities().find(a => a.id === activityId); if (!act) return alert('Atividade não encontrada');
-            const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada');
-            // chamar api/analisar
-            try {
-                const r = await fetch('/api/analisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity: act, response: resp }) });
-                const data = await r.json();
-                if (data.evaluation) { resp.analysis = data.evaluation; saveOne(act); alert('Análise salva.'); } else { alert('Falha análise: ' + (data.error || JSON.stringify(data))); }
-            } catch (e) { alert('Erro ao analisar: ' + e.message); }
-        }
+                await saveOne(act);
 
-        function viewAnalysis(activityId, responseIndex) {
-            const act = getActivities().find(a => a.id === activityId); if (!act) return; const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada'); if (!resp.analysis) return alert('Nenhuma análise disponível');
-            const pretty = JSON.stringify(resp.analysis, null, 2); const w = window.open('', '_blank'); w.document.write(`<pre>${pretty}</pre>`);
-        }
-
-        function sendWhatsApp(activityId) {
-            const act = getActivities().find(a => a.id === activityId); if (!act) return; const numbers = act.numbers && act.numbers.length ? act.numbers : getNumbers(); if (!numbers || !numbers.length) return alert('Nenhum número cadastrado para envio.');
-            const text = encodeURIComponent(`Atividade: ${act.title}\n${act.desc}\nResponda por texto ou envie foto.`);
-            // abrir uma aba por número (admin confirms)
-            if (!confirm('Abrir o WhatsApp Web para cada número?')) return;
-            numbers.forEach(n => { const url = `https://wa.me/${n.replace(/[^0-9+]/g, '')}?text=${text}`; window.open(url, '_blank'); });
-        }
-
-        // Render task states on initial screen (frente dos nomes)
-        function renderTaskStates() {
-            const list = getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
-            if (!list.length) { area.innerHTML = ''; return; }
-            // Mostrar primeiro 5 atividades por ordem criada
-            const shown = list.slice(0, 5);
-            area.innerHTML = '<h4 style="margin-top:8px;color:var(--primary);">Atividades</h4>' + shown.map(a => {
-                const started = a.startedAt ? new Date(a.startedAt).toLocaleDateString() : '--/--';
-                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #30363d;"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
-            }).join('');
-        }
-
-        // Inicialização admin
-        function carregarAdmin() { renderNumbers(); renderActivities(); }
-
-        window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
-
-        // --- Helpers de rota / atividade pública ---
-        function getQueryParam(name) { const url = new URL(window.location.href); return url.searchParams.get(name); }
-
-        async function loadPublicActivityIfAny() {
-            const aid = getQueryParam('atividade');
-            if (!aid) return;
-            const act = getActivities().find(a => a.id === aid);
-            if (!act) { document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
-            // mostrar conteúdo
-            document.getElementById('atividade-title').innerText = act.title;
-            document.getElementById('atividade-desc').innerText = act.desc;
-            const attaches = document.getElementById('atividade-attachments'); attaches.innerHTML = '';
-            if (act.attachments && act.attachments.length) { act.attachments.forEach(att => { const a = document.createElement('a'); a.href = att.data || att.url; a.target = '_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
-            // preencher nome se disponível
-            const name = sessionStorage.getItem('nomeTeca') || ''; if (name) document.getElementById('resp-nome').value = name;
-            irPara('tela-atividade');
-        }
-
-        // Upload com tentativa no Supabase e fallback para dataURL
-        async function uploadFileWithFallback(file) {
-            if (!file) return null;
-            const MAX = 5 * 1024 * 1024; // 5MB
-            if (file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
-
-            // tentar supabase (requere bucket 'attachments' configurado)
-            try {
-                if (window._supabase && _supabase.storage) {
-                    const path = `attachments/${Date.now()}_${file.name}`;
-                    const { error } = await _supabase.storage.from('attachments').upload(path, file);
-                    if (!error) {
-                        const publicUrl = _supabase.storage.from('attachments').getPublicUrl(path).publicUrl;
-                        return { url: publicUrl, name: file.name };
-                    }
-                }
-            } catch (e) { console.warn('Supabase upload falhou, fallback:', e); }
-
-            // fallback: dataURL
-            return await new Promise((resolve, reject) => {
-                const r = new FileReader(); r.onload = () => resolve({ data: r.result, name: file.name }); r.onerror = () => reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
-            });
-        }
-
-        async function submitActivityResponse() {
-            const aid = getQueryParam('atividade');
-            if (!aid) return alert('Atividade inválida');
-            const act = getActivities().find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
-            const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
-            const texto = (document.getElementById('resp-text').value || '').trim();
-            const fileInput = document.getElementById('resp-file');
-            if (!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
-
-            const resp = { id: 'r_' + Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
-
-            if (fileInput && fileInput.files && fileInput.files[0]) {
+                // tentar persistir como submission separada no Supabase
                 try {
-                    const uploaded = await uploadFileWithFallback(fileInput.files[0]);
-                    resp.imagens.push(uploaded);
-                } catch (e) { return alert('Erro no upload: ' + e.message); }
+                    if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
+                        const payload = {
+                            activity_id: act.id,
+                            student_name: autor,
+                            response_text: texto || null,
+                            attachment_url: null,
+                            status: 'enviada',
+                            submitted_at: new Date(resp.submitted_at).toISOString()
+                        };
+                        const { data: ins, error } = await _supabase.from('activity_submissions').insert(payload).select();
+                        if (!error && ins && ins[0]) { resp.submission_id = ins[0].id; await saveOne(act); }
+                    }
+                } catch (e) { console.warn('adminAddResponse save submission failed', e); }
+
+                alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.');
             }
 
-            act.responses = act.responses || [];
-            act.responses.push(resp);
-            act.status = act.status === 'enviada' ? 'em execução' : (act.status || 'em execução');
-            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
-            saveOne(act);
+            async function analyzeResponse(activityId, responseIndex) {
+                const acts = await getActivities();
+                const act = acts.find(a => a.id === activityId);
+                if (!act) return alert('Atividade não encontrada');
+                const resp = act.responses[responseIndex];
+                if (!resp) return alert('Resposta não encontrada');
 
-            document.getElementById('atividade-feedback').innerText = 'Resposta enviada com sucesso. Obrigada!';
+                try {
+                    const r = await fetch('/api/analisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity: act, response: resp }) });
+                    const data = await r.json();
+                    if (data.evaluation) {
+                        resp.analysis = data.evaluation;
+                        await saveOne(act);
 
-            // chamada de avaliação IA (pode consumir tokens) — executar, salvar resultado
-            try { const idx = act.responses.findIndex(r => r.id === resp.id); if (idx >= 0) await analyzeResponse(act.id, idx); } catch (e) { console.warn('Avaliação automática falhou', e); }
-        }
+                        // se houver submission_id, atualize a linha correspondente com a avaliação
+                        try {
+                            if (window._supabase && resp.submission_id) {
+                                await _supabase.from('activity_submissions').update({ ai_evaluation: resp.analysis, final_score: resp.analysis.nota_final || null, evaluated_at: new Date().toISOString(), status: 'avaliada' }).eq('id', resp.submission_id);
+                            } else if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
+                                // tentar localizar submission por activity_id e submitted_at
+                                const { data: found } = await _supabase.from('activity_submissions').select('id').eq('activity_id', act.id).eq('submitted_at', new Date(resp.submitted_at).toISOString()).limit(1);
+                                if (found && found[0]) {
+                                    await _supabase.from('activity_submissions').update({ ai_evaluation: resp.analysis, final_score: resp.analysis.nota_final || null, evaluated_at: new Date().toISOString(), status: 'avaliada' }).eq('id', found[0].id);
+                                }
+                            }
+                        } catch (e) { console.warn('Failed to update submission with analysis', e); }
 
-        // Gerar link público e marcar como enviada
-        function generateActivityLink(activityId) { const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
+                        alert('Análise salva.');
+                    } else {
+                        alert('Falha análise: ' + (data.error || JSON.stringify(data)));
+                    }
+                } catch (e) { alert('Erro ao analisar: ' + e.message); }
+            }
 
-        function sendActivityAsLink(activityId) {
-            const act = getActivities().find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
-            // salvar link meta
-            const linksKey = 'teca_activity_links';
-            const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
-            links.push({ id: 'l_' + Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
-            act.status = 'enviada'; act.sent_at = Date.now(); saveOne(act); navigator.clipboard && navigator.clipboard.writeText(url);
-            alert('Link copiado para a área de transferência e atividade marcada como enviada.'); renderActivities(); renderTaskStates();
-        }
+            function viewAnalysis(activityId, responseIndex) {
+                const act = getActivities().find(a => a.id === activityId); if (!act) return; const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada'); if (!resp.analysis) return alert('Nenhuma análise disponível');
+                const pretty = JSON.stringify(resp.analysis, null, 2); const w = window.open('', '_blank'); w.document.write(`<pre>${pretty}</pre>`);
+            }
 
-        // Render lista centralizada de tarefas/submissões para admin
-        function renderTasks() {
-            const container = document.getElementById('admin-content'); if (!container) return; const acts = getActivities();
-            const rows = [];
-            acts.forEach(act => {
-                (act.responses || []).forEach(r => {
-                    rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
+            function sendWhatsApp(activityId) {
+                const act = getActivities().find(a => a.id === activityId); if (!act) return; const numbers = act.numbers && act.numbers.length ? act.numbers : getNumbers(); if (!numbers || !numbers.length) return alert('Nenhum número cadastrado para envio.');
+                const text = encodeURIComponent(`Atividade: ${act.title}\n${act.desc}\nResponda por texto ou envie foto.`);
+                // abrir uma aba por número (admin confirms)
+                if (!confirm('Abrir o WhatsApp Web para cada número?')) return;
+                numbers.forEach(n => { const url = `https://wa.me/${n.replace(/[^0-9+]/g, '')}?text=${text}`; window.open(url, '_blank'); });
+            }
+
+            // Render task states on initial screen (frente dos nomes)
+            function renderTaskStates() {
+                const list = getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
+                if (!list.length) { area.innerHTML = ''; return; }
+                // Mostrar primeiro 5 atividades por ordem criada
+                const shown = list.slice(0, 5);
+                area.innerHTML = '<h4 style="margin-top:8px;color:var(--primary);">Atividades</h4>' + shown.map(a => {
+                    const started = a.startedAt ? new Date(a.startedAt).toLocaleDateString() : '--/--';
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #30363d;"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
+                }).join('');
+            }
+
+            // Inicialização admin
+            function carregarAdmin() { renderNumbers(); renderActivities(); }
+
+            window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
+
+            // --- Helpers de rota / atividade pública ---
+            function getQueryParam(name) { const url = new URL(window.location.href); return url.searchParams.get(name); }
+
+            async function loadPublicActivityIfAny() {
+                const aid = getQueryParam('atividade');
+                if (!aid) return;
+                const act = getActivities().find(a => a.id === aid);
+                if (!act) { document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
+                // mostrar conteúdo
+                document.getElementById('atividade-title').innerText = act.title;
+                document.getElementById('atividade-desc').innerText = act.desc;
+                const attaches = document.getElementById('atividade-attachments'); attaches.innerHTML = '';
+                if (act.attachments && act.attachments.length) { act.attachments.forEach(att => { const a = document.createElement('a'); a.href = att.data || att.url; a.target = '_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
+                // preencher nome se disponível
+                const name = sessionStorage.getItem('nomeTeca') || ''; if (name) document.getElementById('resp-nome').value = name;
+                irPara('tela-atividade');
+            }
+
+            // Upload com tentativa no Supabase e fallback para dataURL
+            async function uploadFileWithFallback(file) {
+                if (!file) return null;
+                const MAX = 5 * 1024 * 1024; // 5MB
+                if (file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
+
+                // tentar supabase (requere bucket 'attachments' configurado)
+                try {
+                    if (window._supabase && _supabase.storage) {
+                        const path = `attachments/${Date.now()}_${file.name}`;
+                        const { error } = await _supabase.storage.from('attachments').upload(path, file);
+                        if (!error) {
+                            const publicUrl = _supabase.storage.from('attachments').getPublicUrl(path).publicUrl;
+                            return { url: publicUrl, name: file.name };
+                        }
+                    }
+                } catch (e) { console.warn('Supabase upload falhou, fallback:', e); }
+
+                // fallback: dataURL
+                return await new Promise((resolve, reject) => {
+                    const r = new FileReader(); r.onload = () => resolve({ data: r.result, name: file.name }); r.onerror = () => reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
                 });
-            });
-            if (!rows.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
-            container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r => {
-                return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
-            }).join('');
-        }
-
-        // Atualizar renderizações periódicas
-        window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
-
-        let ultimaSelecao = "";
-        function analisarSelecao() {
-            const sel = window.getSelection().toString().trim();
-
-            if (sel.length > 1 && sel.length < 120 && sel !== ultimaSelecao) {
-                ultimaSelecao = sel;
-                falarComIA(`Explique de forma correta e simples: "${sel}"`);
-            }
-        }
-
-        async function salvar() {
-            const btn = document.getElementById('btn-save');
-
-            if (!temaAtual || respostas.length === 0) {
-                alert('Escolha um tema e responda as perguntas.');
-                return;
             }
 
-            btn.disabled = true;
-            btn.innerText = 'Sincronizando...';
+            async function submitActivityResponse() {
+                const aid = getQueryParam('atividade');
+                if (!aid) return alert('Atividade inválida');
+                const act = getActivities().find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
+                const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
+                const texto = (document.getElementById('resp-text').value || '').trim();
+                const fileInput = document.getElementById('resp-file');
+                if (!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
 
-            const dados = {
-                area: temaAtual,
-                observacao: respostas[0]?.resposta || '',
-                hipotese: respostas[1]?.resposta || '',
-                conclusao: respostas
-                    .slice(2)
-                    .map(r => `${r.pergunta} ${r.resposta}`)
-                    .join(' | ')
-            };
+                const resp = { id: 'r_' + Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
 
-            const { error } = await _supabase
-                .from('relatorios_cientificos')
-                .insert([dados]);
+                if (fileInput && fileInput.files && fileInput.files[0]) {
+                    try {
+                        const uploaded = await uploadFileWithFallback(fileInput.files[0]);
+                        resp.imagens.push(uploaded);
+                    } catch (e) { return alert('Erro no upload: ' + e.message); }
+                }
 
-            if (!error) {
-                alert('Protocolo enviado com sucesso para os arquivos da Teca!');
-                location.reload();
-            } else {
-                alert('A mesa da Teca está muito bagunçada para organizar seu relatório agora. Tente de novo em alguns segundos!');
-                btn.disabled = false;
-                btn.innerText = 'Finalizar Relatório';
+                act.responses = act.responses || [];
+                act.responses.push(resp);
+                act.status = act.status === 'enviada' ? 'em execução' : (act.status || 'em execução');
+                act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
+                await saveOne(act);
+
+                // Tentar gravar submissão separada na tabela `activity_submissions` quando activity estiver no DB
+                try {
+                    if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
+                        const payload = {
+                            activity_id: act.id,
+                            student_name: nome,
+                            response_text: texto || null,
+                            attachment_url: resp.imagens && resp.imagens[0] ? (resp.imagens[0].url || resp.imagens[0].data || null) : null,
+                            status: 'enviada',
+                            submitted_at: new Date(resp.submitted_at).toISOString()
+                        };
+                        const { data: ins, error: insErr } = await _supabase.from('activity_submissions').insert(payload).select();
+                        if (!insErr && ins && ins[0]) {
+                            resp.submission_id = ins[0].id;
+                            // salvar referência localmente
+                            await saveOne(act);
+                        }
+                    }
+                } catch (e) { console.warn('save submission failed', e); }
+
+                document.getElementById('atividade-feedback').innerText = 'Resposta enviada com sucesso. Obrigada!';
+
+                // chamada de avaliação IA (pode consumir tokens) — executar, salvar resultado
+                try { const idx = act.responses.findIndex(r => r.id === resp.id); if (idx >= 0) await analyzeResponse(act.id, idx); } catch (e) { console.warn('Avaliação automática falhou', e); }
             }
-        }
 
-        async function carregarAdmin() {
-            const { data } = await _supabase
-                .from('relatorios_cientificos')
-                .select('*')
-                .order('created_at', { ascending: false });
+            // Gerar link público e marcar como enviada
+            function generateActivityLink(activityId) { const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
 
-            const relatorios = (data || []).map(r => `
+            function sendActivityAsLink(activityId) {
+                const act = getActivities().find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
+                // salvar link meta
+                const linksKey = 'teca_activity_links';
+                const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
+                links.push({ id: 'l_' + Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
+                act.status = 'enviada'; act.sent_at = Date.now(); saveOne(act); navigator.clipboard && navigator.clipboard.writeText(url);
+                alert('Link copiado para a área de transferência e atividade marcada como enviada.'); renderActivities(); renderTaskStates();
+            }
+
+            // Render lista centralizada de tarefas/submissões para admin
+            function renderTasks() {
+                const container = document.getElementById('admin-content'); if (!container) return; const acts = getActivities();
+                const rows = [];
+                acts.forEach(act => {
+                    (act.responses || []).forEach(r => {
+                        rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
+                    });
+                });
+                if (!rows.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
+                container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r => {
+                    return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
+                }).join('');
+            }
+
+            // Atualizar renderizações periódicas
+            window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
+
+            let ultimaSelecao = "";
+            function analisarSelecao() {
+                const sel = window.getSelection().toString().trim();
+
+                if (sel.length > 1 && sel.length < 120 && sel !== ultimaSelecao) {
+                    ultimaSelecao = sel;
+                    falarComIA(`Explique de forma correta e simples: "${sel}"`);
+                }
+            }
+
+            async function salvar() {
+                const btn = document.getElementById('btn-save');
+
+                if (!temaAtual || respostas.length === 0) {
+                    alert('Escolha um tema e responda as perguntas.');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerText = 'Sincronizando...';
+
+                const dados = {
+                    area: temaAtual,
+                    observacao: respostas[0]?.resposta || '',
+                    hipotese: respostas[1]?.resposta || '',
+                    conclusao: respostas
+                        .slice(2)
+                        .map(r => `${r.pergunta} ${r.resposta}`)
+                        .join(' | ')
+                };
+
+                const { error } = await _supabase
+                    .from('relatorios_cientificos')
+                    .insert([dados]);
+
+                if (!error) {
+                    alert('Protocolo enviado com sucesso para os arquivos da Teca!');
+                    location.reload();
+                } else {
+                    alert('A mesa da Teca está muito bagunçada para organizar seu relatório agora. Tente de novo em alguns segundos!');
+                    btn.disabled = false;
+                    btn.innerText = 'Finalizar Relatório';
+                }
+            }
+
+            async function carregarAdmin() {
+                const { data } = await _supabase
+                    .from('relatorios_cientificos')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                const relatorios = (data || []).map(r => `
         <div class="admin-row">
           <strong>${new Date(r.created_at).toLocaleString()} - ${r.area}</strong><br>
           <em>Observação:</em> ${r.observacao}<br>
@@ -1156,21 +1231,21 @@
         </div>
       `).join('');
 
-            const logs = JSON.parse(localStorage.getItem('teca_logs') || '[]');
+                const logs = JSON.parse(localStorage.getItem('teca_logs') || '[]');
 
-            // Agrupar logs por usuário (Isis / Maya / Outros)
-            const users = ['Isis', 'Maya'];
-            const grouped = {};
-            users.forEach(u => grouped[u] = []);
-            grouped['Outros'] = [];
+                // Agrupar logs por usuário (Isis / Maya / Outros)
+                const users = ['Isis', 'Maya'];
+                const grouped = {};
+                users.forEach(u => grouped[u] = []);
+                grouped['Outros'] = [];
 
-            logs.forEach(l => {
-                const name = l.nome || 'Anonimo';
-                if (users.includes(name)) grouped[name].push(l);
-                else grouped['Outros'].push(l);
-            });
+                logs.forEach(l => {
+                    const name = l.nome || 'Anonimo';
+                    if (users.includes(name)) grouped[name].push(l);
+                    else grouped['Outros'].push(l);
+                });
 
-            const blocoPorUsuario = users.map(u => `
+                const blocoPorUsuario = users.map(u => `
                 <h4>${u} (${grouped[u].length})</h4>
                 ${grouped[u].length ? grouped[u].map(l => `
                     <div class="admin-row">
@@ -1190,14 +1265,14 @@
             `).join('') : '<p>Nenhuma interação registrada.</p>'}
             `;
 
-            // Configurações do admin (senha) e senhas por usuário
-            const currentAdminPass = getAdminPassword();
-            const userPasswords = getUserPasswords();
+                // Configurações do admin (senha) e senhas por usuário
+                const currentAdminPass = getAdminPassword();
+                const userPasswords = getUserPasswords();
 
-            // Save grouped logs to global for tab rendering
-            window._adminGroupedLogs = grouped;
+                // Save grouped logs to global for tab rendering
+                window._adminGroupedLogs = grouped;
 
-            document.getElementById('admin-content').innerHTML = `
+                document.getElementById('admin-content').innerHTML = `
         <h3>Configurações do Admin</h3>
         <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; gap:12px; align-items:center;">
             <div style="flex:1;">
@@ -1236,15 +1311,15 @@
             ${blocoPorUsuario}
         </div>
       `;
-        }
+            }
 
-        if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
-            // ocultar elementos gerais que não devem aparecer no admin
-            const banner = document.getElementById('user-banner'); if (banner) banner.style.display = 'none';
-            const sb = document.querySelector('.sidebar'); if (sb) sb.style.display = 'none';
-            irPara('tela-admin');
-            carregarAdmin();
-        }
+            if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
+                // ocultar elementos gerais que não devem aparecer no admin
+                const banner = document.getElementById('user-banner'); if (banner) banner.style.display = 'none';
+                const sb = document.querySelector('.sidebar'); if (sb) sb.style.display = 'none';
+                irPara('tela-admin');
+                carregarAdmin();
+            }
     </script>
 
 </body>
