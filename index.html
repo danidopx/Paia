@@ -847,96 +847,110 @@
             }
         }
 
-        // ---------------- Admin helpers ----------------
+        // ---------------- Admin helpers (Supabase persistence, fallback local) ----------------
         function numbersKey() { return 'teca_numbers'; }
-        function getNumbers() { try { return JSON.parse(localStorage.getItem(numbersKey()) || '[]'); } catch (e) { return [] } }
-        function saveNumbers(list) { localStorage.setItem(numbersKey(), JSON.stringify(list)); renderNumbers(); }
-        function addNumber() {
+        async function fetchNumbersFromDB() {
+            try {
+                if (window._supabase) {
+                    const { data, error } = await _supabase.from('contacts').select('phone').order('created_at', { ascending: false });
+                    if (!error && data) return data.map(d => d.phone);
+                }
+            } catch (e) { console.warn('fetchNumbersFromDB failed', e); }
+            try { return JSON.parse(localStorage.getItem(numbersKey()) || '[]'); } catch (e) { return []; }
+        }
+
+        async function getNumbers() { return await fetchNumbersFromDB(); }
+
+        async function saveNumberToDB(phone) {
+            try {
+                if (window._supabase) {
+                    const { error } = await _supabase.from('contacts').insert({ phone, created_at: new Date().toISOString() });
+                    if (!error) return true;
+                }
+            } catch (e) { console.warn('saveNumberToDB failed', e); }
+            try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]'); list.unshift(phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
+        }
+
+        async function removeNumberFromDB(phone) {
+            try {
+                if (window._supabase) {
+                    const { data, error } = await _supabase.from('contacts').select('id').eq('phone', phone).limit(1);
+                    if (!error && data && data[0]) { await _supabase.from('contacts').delete().eq('id', data[0].id); return true; }
+                }
+            } catch (e) { console.warn('removeNumberFromDB failed', e); }
+            try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]').filter(x => x !== phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
+        }
+
+        async function addNumber() {
             const v = document.getElementById('new-number').value.trim();
             if (!v) return alert('Informe um número.');
-            const list = getNumbers();
+            const list = await getNumbers();
             if (list.includes(v)) return alert('Número já cadastrado.');
-            list.push(v); saveNumbers(list); document.getElementById('new-number').value = '';
+            const ok = await saveNumberToDB(v);
+            if (ok) { document.getElementById('new-number').value = ''; await renderNumbers(); } else alert('Falha ao salvar número.');
         }
-        function removeNumber(n) { const list = getNumbers().filter(x => x !== n); saveNumbers(list); }
-        function renderNumbers() { const container = document.getElementById('numbers-list'); if (!container) return; const list = getNumbers(); if (!list.length) container.innerHTML = '<p style="color:#8b949e">Nenhum número cadastrado.</p>'; else container.innerHTML = list.map(n => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="flex:1">${n}</div><button onclick="(function(n){removeNumber(n)})('${encodeURIComponent('{{N}}')}')" style="width:80px;background:#333;color:#fff">Remover</button></div>`.replace('{{N}}', n)).join(''); }
 
-        // Activities stored in localStorage
+        async function removeNumber(n) { if (!confirm('Remover número?')) return; await removeNumberFromDB(decodeURIComponent(n)); await renderNumbers(); }
+
+        async function renderNumbers() {
+            const container = document.getElementById('numbers-list'); if (!container) return; const list = await getNumbers(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhum número cadastrado.</p>'; return; }
+            container.innerHTML = list.map(n => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="flex:1">${n}</div><button onclick="removeNumber('${encodeURIComponent(n)}')" style="width:80px;background:#333;color:#fff">Remover</button></div>`).join('');
+        }
+
+        // Activities persisted in Supabase (fallback to localStorage)
         function activitiesKey() { return 'teca_activities'; }
-        function getActivities() { try { return JSON.parse(localStorage.getItem(activitiesKey()) || '[]') } catch (e) { return [] } }
-        function saveActivities(list) { localStorage.setItem(activitiesKey(), JSON.stringify(list)); renderActivities(); renderTaskStates(); }
+        async function fetchActivitiesFromDB() {
+            try {
+                if (window._supabase) {
+                    const { data, error } = await _supabase.from('activities').select('*').order('created_at', { ascending: false });
+                    if (!error && data) return data.map(a => ({ id: a.id, title: a.title, desc: a.description, theme: a.theme, expected: a.expected_responses || 1, attachments: a.attachments || [], responses: a.responses || [], createdAt: a.created_at, startedAt: a.started_at, progress: a.progress || 0, status: a.status || 'rascunho', winner: a.winner || null, sent_at: a.sent_at }));
+                }
+            } catch (e) { console.warn('fetchActivitiesFromDB failed', e); }
+            try { return JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); } catch (e) { return []; }
+        }
 
-        function createActivity() {
+        async function getActivities() { return await fetchActivitiesFromDB(); }
+
+        async function saveActivityToDB(act) {
+            try {
+                if (window._supabase) {
+                    const payload = { title: act.title, description: act.desc, theme: act.theme, expected_responses: act.expected, attachments: act.attachments || [], status: act.status || 'rascunho', created_at: act.createdAt ? new Date(act.createdAt).toISOString() : new Date().toISOString(), started_at: act.startedAt ? new Date(act.startedAt).toISOString() : null, progress: act.progress || 0, winner: act.winner || null, sent_at: act.sent_at || null };
+                    if (!act.id || act.id.toString().startsWith('act_')) {
+                        const { data, error } = await _supabase.from('activities').insert(payload).select(); if (!error && data && data[0]) return data[0];
+                    } else {
+                        const { error } = await _supabase.from('activities').update(payload).eq('id', act.id); if (!error) return act;
+                    }
+                }
+            } catch (e) { console.warn('saveActivityToDB failed', e); }
+            try { const list = JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); if (act.id) { const idx = list.findIndex(x => x.id === act.id); if (idx >= 0) list[idx] = act; else list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } else { act.id = 'act_' + Date.now(); list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } } catch (e) { return act; }
+        }
+
+        async function createActivity() {
             const title = document.getElementById('act-title').value.trim();
             const desc = document.getElementById('act-desc').value.trim();
             const theme = document.getElementById('act-theme').value.trim() || 'geral';
             const expected = parseInt(document.getElementById('act-expected').value) || 1;
             if (!title) return alert('Título obrigatório');
             const fileInput = document.getElementById('act-attachment');
-            const activity = { id: 'act_' + Date.now(), title, desc, theme, expected, numbers: getNumbers(), attachments: [], responses: [], createdAt: Date.now(), startedAt: null, progress: 0, winner: null };
-
+            const activity = { id: 'act_' + Date.now(), title, desc, theme, expected, numbers: await getNumbers(), attachments: [], responses: [], createdAt: Date.now(), startedAt: null, progress: 0, winner: null, status: 'rascunho' };
             if (fileInput && fileInput.files && fileInput.files[0]) {
                 const f = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = (e) => { activity.attachments.push({ name: f.name, data: e.target.result }); const list = getActivities(); list.unshift(activity); saveActivities(list); clearActivityForm(); };
-                reader.readAsDataURL(f);
-            } else {
-                const list = getActivities(); list.unshift(activity); saveActivities(list); clearActivityForm();
+                try { const uploaded = await uploadFileWithFallback(f); activity.attachments.push(uploaded); } catch (e) { console.warn('attachment upload failed', e); }
             }
+            await saveActivityToDB(activity); await renderActivities(); renderTaskStates(); clearActivityForm();
         }
 
         function clearActivityForm() { document.getElementById('act-title').value = ''; document.getElementById('act-desc').value = ''; document.getElementById('act-theme').value = ''; document.getElementById('act-expected').value = ''; document.getElementById('act-attachment').value = ''; }
 
-        function renderActivities() {
-            const container = document.getElementById('activities-list'); if (!container) return; const list = getActivities(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma atividade criada.</p>'; return; }
-            container.innerHTML = list.map(act => {
-                const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—';
-                return `
-                <div class="admin-row">
-                    <strong>${act.title}</strong> <br>
-                    <small>${act.desc}</small><br>
-                    <em>Tema:</em> ${act.theme} • <em>Respostas esperadas:</em> ${act.expected} • <em>Iniciado:</em> ${started} • <em>Progresso:</em> ${act.progress}%<br>
-                    <div style="margin-top:8px; display:flex; gap:8px;">
-                        <button onclick="sendWhatsApp('${act.id}')">Enviar via WhatsApp</button>
-                        <button onclick="openActivity('${act.id}')">Abrir</button>
-                        <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
+        async function renderActivities() { const container = document.getElementById('activities-list'); if (!container) return; const list = await getActivities(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma atividade criada.</p>'; return; } container.innerHTML = list.map(act => { const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—'; return ` <div class="admin-row"> <strong>${act.title}</strong> <br> <small>${act.desc}</small><br> <em>Tema:</em> ${act.theme} • <em>Respostas esperadas:</em> ${act.expected} • <em>Iniciado:</em> ${started} • <em>Progresso:</em> ${act.progress}% • <em>Status:</em> ${act.status || 'rascunho'}<br> <div style="margin-top:8px; display:flex; gap:8px;"> <button onclick="sendWhatsApp('${act.id}')">Enviar via WhatsApp</button> <button onclick="openActivity('${act.id}')">Abrir</button> <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button> <button onclick="(function(a){ sendActivityAsLink(a) })('${act.id}')">Gerar Link</button> </div> </div>`; }).join(''); }
 
-        function deleteActivity(id) { if (!confirm('Remover atividade?')) return; const list = getActivities().filter(a => a.id !== id); saveActivities(list); }
+        async function deleteActivity(id) { if (!confirm('Remover atividade?')) return; try { if (window._supabase) { await _supabase.from('activities').delete().eq('id', id); } } catch (e) { console.warn('deleteActivity DB failed', e); } const list = (await getActivities()).filter(a => a.id !== id); localStorage.setItem(activitiesKey(), JSON.stringify(list)); await renderActivities(); }
 
-        function openActivity(id) {
-            const act = getActivities().find(a => a.id === id); if (!act) return alert('Atividade não encontrada');
-            // mostrar modal simples via prompt/confirm for admin actions
-            const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses.length}`;
-            if (!act.startedAt) { act.startedAt = Date.now(); }
-            saveOne(act);
-            const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:');
-            if (!choice) return;
-            if (choice.startsWith('1')) return adminAddResponse(id);
-            if (choice.startsWith('2')) {
-                const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return;
-            }
-            if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; }
-            if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; saveOne(act); } return; }
-        }
+        async function openActivity(id) { const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
 
-        function saveOne(act) { const list = getActivities(); const idx = list.findIndex(a => a.id === act.id); if (idx >= 0) list[idx] = act; else list.unshift(act); saveActivities(list); }
+        async function saveOne(act) { await saveActivityToDB(act); await renderActivities(); }
 
-        function adminAddResponse(activityId) {
-            const act = getActivities().find(a => a.id === activityId); if (!act) return;
-            const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo';
-            const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || '';
-            // simples: sem upload de arquivo aqui, mas pode colar dataURL
-            const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null };
-            act.responses.push(resp);
-            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
-            if (!act.startedAt) act.startedAt = Date.now();
-            saveOne(act);
-            alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.');
-        }
+        async function adminAddResponse(activityId) { const acts = await getActivities(); const act = acts.find(a => a.id === activityId); if (!act) return; const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo'; const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || ''; const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null, submitted_at: Date.now() }; act.responses = act.responses || []; act.responses.push(resp); act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100)); if (!act.startedAt) act.startedAt = Date.now(); await saveOne(act); alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.'); }
 
         async function analyzeResponse(activityId, responseIndex) {
             const act = getActivities().find(a => a.id === activityId); if (!act) return alert('Atividade não encontrada');
@@ -980,100 +994,102 @@
         window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
 
         // --- Helpers de rota / atividade pública ---
-        function getQueryParam(name){ const url = new URL(window.location.href); return url.searchParams.get(name); }
+        function getQueryParam(name) { const url = new URL(window.location.href); return url.searchParams.get(name); }
 
-        async function loadPublicActivityIfAny(){
+        async function loadPublicActivityIfAny() {
             const aid = getQueryParam('atividade');
-            if(!aid) return;
-            const act = getActivities().find(a=>a.id===aid);
-            if(!act){ document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
+            if (!aid) return;
+            const act = getActivities().find(a => a.id === aid);
+            if (!act) { document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
             // mostrar conteúdo
             document.getElementById('atividade-title').innerText = act.title;
             document.getElementById('atividade-desc').innerText = act.desc;
             const attaches = document.getElementById('atividade-attachments'); attaches.innerHTML = '';
-            if(act.attachments && act.attachments.length){ act.attachments.forEach(att=>{ const a = document.createElement('a'); a.href = att.data || att.url; a.target='_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
+            if (act.attachments && act.attachments.length) { act.attachments.forEach(att => { const a = document.createElement('a'); a.href = att.data || att.url; a.target = '_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
             // preencher nome se disponível
-            const name = sessionStorage.getItem('nomeTeca') || ''; if(name) document.getElementById('resp-nome').value = name;
+            const name = sessionStorage.getItem('nomeTeca') || ''; if (name) document.getElementById('resp-nome').value = name;
             irPara('tela-atividade');
         }
 
         // Upload com tentativa no Supabase e fallback para dataURL
-        async function uploadFileWithFallback(file){
-            if(!file) return null;
+        async function uploadFileWithFallback(file) {
+            if (!file) return null;
             const MAX = 5 * 1024 * 1024; // 5MB
-            if(file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
+            if (file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
 
             // tentar supabase (requere bucket 'attachments' configurado)
-            try{
-                if(window._supabase && _supabase.storage){
+            try {
+                if (window._supabase && _supabase.storage) {
                     const path = `attachments/${Date.now()}_${file.name}`;
                     const { error } = await _supabase.storage.from('attachments').upload(path, file);
-                    if(!error){
+                    if (!error) {
                         const publicUrl = _supabase.storage.from('attachments').getPublicUrl(path).publicUrl;
                         return { url: publicUrl, name: file.name };
                     }
                 }
-            }catch(e){ console.warn('Supabase upload falhou, fallback:', e); }
+            } catch (e) { console.warn('Supabase upload falhou, fallback:', e); }
 
             // fallback: dataURL
-            return await new Promise((resolve,reject)=>{
-                const r=new FileReader(); r.onload=()=>resolve({ data: r.result, name: file.name }); r.onerror=()=>reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
+            return await new Promise((resolve, reject) => {
+                const r = new FileReader(); r.onload = () => resolve({ data: r.result, name: file.name }); r.onerror = () => reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
             });
         }
 
-        async function submitActivityResponse(){
+        async function submitActivityResponse() {
             const aid = getQueryParam('atividade');
-            if(!aid) return alert('Atividade inválida');
-            const act = getActivities().find(a=>a.id===aid); if(!act) return alert('Atividade não encontrada');
+            if (!aid) return alert('Atividade inválida');
+            const act = getActivities().find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
             const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
             const texto = (document.getElementById('resp-text').value || '').trim();
             const fileInput = document.getElementById('resp-file');
-            if(!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
+            if (!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
 
-            const resp = { id: 'r_'+Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
+            const resp = { id: 'r_' + Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
 
-            if(fileInput && fileInput.files && fileInput.files[0]){
-                try{
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                try {
                     const uploaded = await uploadFileWithFallback(fileInput.files[0]);
                     resp.imagens.push(uploaded);
-                }catch(e){ return alert('Erro no upload: '+e.message); }
+                } catch (e) { return alert('Erro no upload: ' + e.message); }
             }
 
             act.responses = act.responses || [];
             act.responses.push(resp);
             act.status = act.status === 'enviada' ? 'em execução' : (act.status || 'em execução');
-            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected||1)) * 100));
+            act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
             saveOne(act);
 
             document.getElementById('atividade-feedback').innerText = 'Resposta enviada com sucesso. Obrigada!';
 
             // chamada de avaliação IA (pode consumir tokens) — executar, salvar resultado
-            try{ const idx = act.responses.findIndex(r=>r.id===resp.id); if(idx>=0) await analyzeResponse(act.id, idx); } catch(e){ console.warn('Avaliação automática falhou', e); }
+            try { const idx = act.responses.findIndex(r => r.id === resp.id); if (idx >= 0) await analyzeResponse(act.id, idx); } catch (e) { console.warn('Avaliação automática falhou', e); }
         }
 
         // Gerar link público e marcar como enviada
-        function generateActivityLink(activityId){ const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
+        function generateActivityLink(activityId) { const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
 
-        function sendActivityAsLink(activityId){ const act = getActivities().find(a=>a.id===activityId); if(!act) return; const url = generateActivityLink(activityId);
+        function sendActivityAsLink(activityId) {
+            const act = getActivities().find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
             // salvar link meta
             const linksKey = 'teca_activity_links';
             const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
-            links.push({ id: 'l_'+Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
+            links.push({ id: 'l_' + Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
             act.status = 'enviada'; act.sent_at = Date.now(); saveOne(act); navigator.clipboard && navigator.clipboard.writeText(url);
             alert('Link copiado para a área de transferência e atividade marcada como enviada.'); renderActivities(); renderTaskStates();
         }
 
         // Render lista centralizada de tarefas/submissões para admin
-        function renderTasks(){ const container = document.getElementById('admin-content'); if(!container) return; const acts = getActivities();
+        function renderTasks() {
+            const container = document.getElementById('admin-content'); if (!container) return; const acts = getActivities();
             const rows = [];
-            acts.forEach(act=>{
-                (act.responses||[]).forEach(r=>{
-                    rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final||null) : null, resumo: r.analysis ? (r.analysis.resumo_admin||'') : '' });
+            acts.forEach(act => {
+                (act.responses || []).forEach(r => {
+                    rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
                 });
             });
-            if(!rows.length){ container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
-            container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r=>{
-                return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score||'—'}<br><small>Enviada: ${r.submittedAt? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
+            if (!rows.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
+            container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r => {
+                return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
             }).join('');
         }
 
@@ -1223,6 +1239,9 @@
         }
 
         if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
+            // ocultar elementos gerais que não devem aparecer no admin
+            const banner = document.getElementById('user-banner'); if (banner) banner.style.display = 'none';
+            const sb = document.querySelector('.sidebar'); if (sb) sb.style.display = 'none';
             irPara('tela-admin');
             carregarAdmin();
         }
