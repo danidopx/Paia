@@ -9,19 +9,17 @@
 
     <style>
         :root {
-            --primary: #00d4ff;
-            --bg: #0d1117;
-            --card: #161b22;
-            --text: #c9d1d9;
-            --sidebar-bg: #21262d;
+            --primary: #4c8cff;
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --surface: #eef4ff;
+            --accent: #7c3aed;
         }
 
-        function showUserLogs(user) {
-            const grouped=window._adminGroupedLogs || {}
-
-            ;
-            const container=document.getElementById('admin-logs');
-            if ( !container) return;
+        /* showUserLogs is injected later in the script; no inline JS inside <style> */
 
             if (user==='All') {
                 const users=Object.keys(grouped);
@@ -91,7 +89,7 @@
             color: var(--text);
             margin: 0;
             display: flex;
-            height: 100vh;
+            min-height: 100vh;
         }
 
         #app {
@@ -113,14 +111,63 @@
             box-sizing: border-box;
         }
 
+        /* quando em modo admin, ocultar elementos não relevantes */
+        .admin-mode .sidebar,
+        .admin-mode #user-banner {
+            display: none !important;
+        }
+
         .container {
             max-width: 650px;
             width: 100%;
             background: var(--card);
             padding: 30px;
-            border-radius: 12px;
-            border: 1px solid #30363d;
+            border-radius: 20px;
+            border: 1px solid var(--border);
             box-sizing: border-box;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-toggle {
+            background: rgba(76, 140, 255, 0.12);
+            color: var(--primary);
+            border: 1px solid rgba(76, 140, 255, 0.25);
+            border-radius: 999px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .admin-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .admin-tabs button {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            padding: 10px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .admin-tabs button.active {
+            background: var(--primary);
+            color: white;
+            border-color: transparent;
+        }
+
+        .admin-row {
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            background: var(--surface);
         }
 
         .hidden {
@@ -141,10 +188,10 @@
             box-sizing: border-box;
             padding: 12px;
             margin-top: 8px;
-            border-radius: 8px;
-            background: #010409;
-            color: white;
-            border: 1px solid #30363d;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: var(--text);
+            border: 1px solid var(--border);
             resize: none;
         }
 
@@ -154,14 +201,38 @@
 
         button {
             background: var(--primary);
-            color: #0d1117;
+            color: #ffffff;
             border: none;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 14px 16px;
+            border-radius: 14px;
             cursor: pointer;
-            width: 100%;
-            font-weight: bold;
-            margin-top: 20px;
+            min-width: 120px;
+            font-weight: 700;
+            margin-top: 16px;
+        }
+
+        button:hover {
+            opacity: 0.95;
+        }
+
+        .theme-light {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --surface: #eef4ff;
+            --accent: #7c3aed;
+        }
+
+        .theme-dark {
+            --bg: #0d1117;
+            --card: #161b22;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --border: #30363d;
+            --surface: #21262d;
+            --accent: #00d4ff;
         }
 
         #ai-status {
@@ -321,38 +392,57 @@
 
         </div>
 
-        <div id="tela-admin" class="container hidden" style="max-width: 950px;">
-            <h2>Dashboard do Supervisor</h2>
-            <div style="display:flex; gap:16px;">
-                <div style="flex:1; min-width:300px;">
-                    <h4>1) Telefones / Contatos (WhatsApp)</h4>
-                    <div style="display:flex; gap:8px;">
-                        <input id="new-number" class="teca-input" placeholder="Número (ex: +5511999998888)">
-                        <button onclick="addNumber()" style="width:120px;">Adicionar</button>
-                    </div>
-                    <div id="numbers-list" style="margin-top:12px;"></div>
-
-                    <hr style="margin:12px 0;">
-
-                    <h4>2) Criar atividade</h4>
-                    <input id="act-title" class="teca-input" placeholder="Título da atividade">
-                    <textarea id="act-desc" rows="3" class="teca-input" placeholder="Descrição / instruções"></textarea>
-                    <div style="display:flex; gap:8px;">
-                        <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)" style="flex:1">
-                        <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)"
-                            style="width:140px">
-                    </div>
-                    <input id="act-attachment" type="file" style="margin-top:8px;">
-                    <button onclick="createActivity()">Criar atividade</button>
+        <div id="tela-admin" class="container hidden" style="max-width: 980px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                <div>
+                    <h2>Painel da Professora Teca</h2>
+                    <div style="color: var(--muted); font-size:14px; margin-top:4px;">Gerencie atividades, envios e avaliações.</div>
                 </div>
+                <button class="theme-toggle" onclick="toggleTheme()">Alternar tema</button>
+            </div>
 
-                <div style="flex:1.2; min-width:350px;">
-                    <h4>3) Atividades</h4>
-                    <div id="activities-list"></div>
+            <div class="admin-tabs">
+                <button data-tab="activities" class="active" onclick="showAdminTab('activities')">Atividades</button>
+                <button data-tab="tasks" onclick="showAdminTab('tasks')">Tarefas / Acompanhamento</button>
+                <button data-tab="settings" onclick="showAdminTab('settings')">Configurações</button>
+            </div>
+
+            <div id="admin-tab-activities" class="admin-tab-pane">
+                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:280px;">
+                        <h4>Criar atividade</h4>
+                        <input id="act-title" class="teca-input" placeholder="Título da atividade">
+                        <textarea id="act-desc" rows="4" class="teca-input" placeholder="Descrição / instruções"></textarea>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+                            <button onclick="improveActivityDescription()" style="flex:0 0 auto;">Melhorar com IA</button>
+                            <span id="description-ai-status" style="font-size:13px;color:var(--muted);"></span>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)" style="flex:1; min-width:160px;">
+                            <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)" style="width:160px; min-width:140px;">
+                        </div>
+                        <label style="font-size:13px;color:var(--muted);margin-top:6px;display:block;">Anexo opcional para a atividade (imagem).</label>
+                        <input id="act-attachment" type="file" style="margin-top:8px;">
+                        <button onclick="createActivity()">Criar atividade</button>
+                    </div>
+
+                    <div style="flex:1.4; min-width:320px;">
+                        <h4>Atividades cadastradas</h4>
+                        <div id="activities-list"></div>
+                    </div>
                 </div>
             </div>
-            <div style="margin-top:10px; text-align:right;"><button onclick="location.href='index.html'">Sair do
-                    Admin</button></div>
+
+            <div id="admin-tab-tasks" class="admin-tab-pane hidden">
+                <h4>Tarefas e acompanhamento</h4>
+                <div id="admin-tasks-container"></div>
+            </div>
+
+            <div id="admin-tab-settings" class="admin-tab-pane hidden">
+                <div id="admin-content"></div>
+            </div>
+
+            <div style="margin-top:18px; text-align:right;"><button onclick="location.href='index.html'">Sair do Admin</button></div>
         </div>
 
     </div>
@@ -374,6 +464,10 @@
         const supabaseUrl = 'https://jjpmqxcymsrglwenklfo.supabase.co';
         const supabaseKey = 'sb_publishable_aiCmRwdcB4BM-wQAj_2kpg_Wl0nMaOq';
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        function isAdminMode() {
+            try { return new URLSearchParams(window.location.search).get('mode') === 'admin'; } catch (e) { return false; }
+        }
 
         let nomeTeca = sessionStorage.getItem('nomeTeca') || '';
         const inputNomeTeca = document.getElementById('nome-teca');
@@ -527,6 +621,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            applyTheme(getSavedTheme());
             carregarModelos();
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
@@ -856,6 +951,11 @@
                     if (!error && data) return data.map(d => d.phone);
                 }
             } catch (e) { console.warn('fetchNumbersFromDB failed', e); }
+            // No DB available: if admin mode, inform the admin that Supabase is required
+            if (isAdminMode()) {
+                console.error('Supabase não disponível no modo admin. Configure SUPABASE para persistência.');
+                return [];
+            }
             try { return JSON.parse(localStorage.getItem(numbersKey()) || '[]'); } catch (e) { return []; }
         }
 
@@ -868,6 +968,11 @@
                     if (!error) return true;
                 }
             } catch (e) { console.warn('saveNumberToDB failed', e); }
+            // não deve cair no fallback quando estamos em modo admin
+            if (isAdminMode()) {
+                alert('Operação requer Supabase no modo admin. Número não salvo.');
+                return false;
+            }
             try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]'); list.unshift(phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
         }
 
@@ -878,6 +983,7 @@
                     if (!error && data && data[0]) { await _supabase.from('contacts').delete().eq('id', data[0].id); return true; }
                 }
             } catch (e) { console.warn('removeNumberFromDB failed', e); }
+            if (isAdminMode()) { alert('Operação requer Supabase no modo admin. Número não removido.'); return false; }
             try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]').filter(x => x !== phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
         }
 
@@ -906,6 +1012,11 @@
                     if (!error && data) return data.map(a => ({ id: a.id, title: a.title, desc: a.description, theme: a.theme, expected: a.expected_responses || 1, attachments: a.attachments || [], responses: a.responses || [], createdAt: a.created_at, startedAt: a.started_at, progress: a.progress || 0, status: a.status || 'rascunho', winner: a.winner || null, sent_at: a.sent_at }));
                 }
             } catch (e) { console.warn('fetchActivitiesFromDB failed', e); }
+            // Se estamos em modo admin, não devíamos depender de localStorage
+            if (isAdminMode()) {
+                console.error('Supabase não disponível no modo admin. Configure SUPABASE para persistência de atividades.');
+                return [];
+            }
             try { return JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); } catch (e) { return []; }
         }
 
@@ -922,7 +1033,48 @@
                     }
                 }
             } catch (e) { console.warn('saveActivityToDB failed', e); }
+            // não fazer fallback para localStorage quando em modo admin
+            if (isAdminMode()) {
+                alert('Operação requer Supabase no modo admin. Atividade não salva.');
+                return act;
+            }
             try { const list = JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); if (act.id) { const idx = list.findIndex(x => x.id === act.id); if (idx >= 0) list[idx] = act; else list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } else { act.id = 'act_' + Date.now(); list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } } catch (e) { return act; }
+        }
+
+        async function saveOne(act) {
+            await saveActivityToDB(act);
+            await renderActivities();
+            await renderTasks();
+        }
+
+        async function improveActivityDescription() {
+            const descEl = document.getElementById('act-desc');
+            if (!descEl) return;
+            const original = descEl.value.trim();
+            if (!original) return alert('Digite a descrição da atividade antes de pedir a IA.');
+            const status = document.getElementById('description-ai-status');
+            status.innerText = 'Ajustando com IA...';
+            try {
+                const prompt = `Você é a Professora Teca, mas está ajudando o administrador a melhorar uma atividade escolar. Reescreva a descrição abaixo para ficar clara, objetiva, acolhedora e adequada para estudantes. Não mude o objetivo da atividade. Não invente exigências novas. Organize em:\n1. O que fazer\n2. Como responder\n3. O que será observado\n\nTexto original:\n${original}\n\nRetorne apenas o texto final da atividade.`;
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, nome: 'admin', preferredModels: obterModelosParaUso() })
+                });
+                const data = await res.json();
+                if (data.result) {
+                    descEl.value = data.result.trim();
+                    status.innerText = 'Descrição atualizada com IA.';
+                } else {
+                    status.innerText = 'Falha ao melhorar a descrição.';
+                    alert('Erro IA: ' + (data.error || 'sem resposta.'));
+                }
+            } catch (e) {
+                status.innerText = 'Erro ao chamar a IA.';
+                alert('Falha ao melhorar a descrição: ' + e.message);
+            } finally {
+                setTimeout(() => { if (status.innerText.includes('IA')) status.innerText = ''; }, 5000);
+            }
         }
 
         async function createActivity() {
@@ -942,9 +1094,26 @@
 
         function clearActivityForm() { document.getElementById('act-title').value = ''; document.getElementById('act-desc').value = ''; document.getElementById('act-theme').value = ''; document.getElementById('act-expected').value = ''; document.getElementById('act-attachment').value = ''; }
 
-        async function renderActivities() { const container = document.getElementById('activities-list'); if (!container) return; const list = await getActivities(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma atividade criada.</p>'; return; } container.innerHTML = list.map(act => { const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—'; return ` <div class="admin-row"> <strong>${act.title}</strong> <br> <small>${act.desc}</small><br> <em>Tema:</em> ${act.theme} • <em>Respostas esperadas:</em> ${act.expected} • <em>Iniciado:</em> ${started} • <em>Progresso:</em> ${act.progress}% • <em>Status:</em> ${act.status || 'rascunho'}<br> <div style="margin-top:8px; display:flex; gap:8px;"> <button onclick="sendWhatsApp('${act.id}')">Enviar via WhatsApp</button> <button onclick="openActivity('${act.id}')">Abrir</button> <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button> <button onclick="(function(a){ sendActivityAsLink(a) })('${act.id}')">Gerar Link</button> </div> </div>`; }).join(''); }
+        async function renderActivities() { const container = document.getElementById('activities-list'); if (!container) return; const list = await getActivities(); if (!list.length) { container.innerHTML = '<p style="color:var(--muted)">Nenhuma atividade criada.</p>'; return; } container.innerHTML = list.map(act => { const created = act.createdAt ? new Date(act.createdAt).toLocaleString() : '—'; const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—'; return ` <div class="admin-row"> <strong>${act.title}</strong> <div style="margin-top:6px;"><small>${act.desc}</small></div><div style="margin-top:10px; color:var(--muted); font-size:13px;">Criada em: ${created} • Iniciada: ${started} • Status: <strong>${act.status || 'rascunho'}</strong> • Progresso: ${act.progress}%</div><div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;"> <button onclick="openActivity('${act.id}')">Ver / Detalhes</button> <button onclick="sendActivityAsLink('${act.id}')">Enviar atividade</button> <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button> </div> </div>`; }).join(''); }
 
-        async function deleteActivity(id) { if (!confirm('Remover atividade?')) return; try { if (window._supabase) { await _supabase.from('activities').delete().eq('id', id); } } catch (e) { console.warn('deleteActivity DB failed', e); } const list = (await getActivities()).filter(a => a.id !== id); localStorage.setItem(activitiesKey(), JSON.stringify(list)); await renderActivities(); }
+        async function deleteActivity(id) {
+            if (!confirm('Remover atividade?')) return;
+            try {
+                if (window._supabase) {
+                    await _supabase.from('activities').delete().eq('id', id);
+                } else if (isAdminMode()) {
+                    alert('Operação requer Supabase no modo admin. Configure SUPABASE para remover atividades.');
+                    return;
+                }
+            } catch (e) { console.warn('deleteActivity DB failed', e); }
+
+            // atualizar lista local apenas se não estivermos forçando DB
+            if (!isAdminMode()) {
+                const list = (await getActivities()).filter(a => a.id !== id);
+                localStorage.setItem(activitiesKey(), JSON.stringify(list));
+            }
+            await renderActivities();
+        }
 
         async function openActivity(id) {
             const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
@@ -996,6 +1165,7 @@
                     const data = await r.json();
                     if (data.evaluation) {
                         resp.analysis = data.evaluation;
+                        act.status = 'avaliada';
                         await saveOne(act);
 
                         // se houver submission_id, atualize a linha correspondente com a avaliação
@@ -1032,30 +1202,66 @@
             }
 
             // Render task states on initial screen (frente dos nomes)
-            function renderTaskStates() {
-                const list = getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
+            async function renderTaskStates() {
+                const list = await getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
                 if (!list.length) { area.innerHTML = ''; return; }
                 // Mostrar primeiro 5 atividades por ordem criada
                 const shown = list.slice(0, 5);
                 area.innerHTML = '<h4 style="margin-top:8px;color:var(--primary);">Atividades</h4>' + shown.map(a => {
                     const started = a.startedAt ? new Date(a.startedAt).toLocaleDateString() : '--/--';
-                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #30363d;"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
                 }).join('');
             }
 
             // Inicialização admin
-            function carregarAdmin() { renderNumbers(); renderActivities(); }
+            function carregarAdmin() { renderNumbers(); renderActivities(); renderAdminSettings(); }
 
-            window.addEventListener('DOMContentLoaded', () => { carregarAdmin(); renderTaskStates(); });
+            function showAdminTab(tab) {
+                document.querySelectorAll('.admin-tab-pane').forEach(el => el.classList.add('hidden'));
+                const pane = document.getElementById(`admin-tab-${tab}`);
+                if (pane) pane.classList.remove('hidden');
+                document.querySelectorAll('.admin-tabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+                if (tab === 'tasks') renderTasks();
+                if (tab === 'settings') renderAdminSettings();
+            }
+
+            window.addEventListener('DOMContentLoaded', () => { if (isAdminMode()) carregarAdmin(); renderTaskStates(); });
 
             // --- Helpers de rota / atividade pública ---
             function getQueryParam(name) { const url = new URL(window.location.href); return url.searchParams.get(name); }
 
+            function showUserLogs(user) {
+                const grouped = window._adminGroupedLogs || {};
+                const container = document.getElementById('admin-logs');
+                if (!container) return;
+                const list = grouped[user] || [];
+                if (user === 'All') {
+                    const users = Object.keys(grouped);
+                    container.innerHTML = users.map(u => ` <h4>${u} (${(grouped[u]||[]).length})</h4> ${ (grouped[u]||[]).length ? (grouped[u]||[]).map(l => ` <div class="admin-row"><strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('') : '<p>Nenhuma interação registrada.</p>' } `).join('');
+                    return;
+                }
+                if (!list.length) {
+                    container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
+                    return;
+                }
+                container.innerHTML = list.map(l => ` <div class="admin-row"><strong>${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('');
+            }
+
+            function getSavedTheme() { return localStorage.getItem('teca_theme') || 'light'; }
+            function applyTheme(theme) { document.body.classList.remove('theme-light', 'theme-dark'); document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light'); localStorage.setItem('teca_theme', theme); }
+            function toggleTheme() { const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; applyTheme(current === 'dark' ? 'light' : 'dark'); }
+
             async function loadPublicActivityIfAny() {
                 const aid = getQueryParam('atividade');
                 if (!aid) return;
-                const act = getActivities().find(a => a.id === aid);
+                const acts = await getActivities();
+                const act = acts.find(a => a.id === aid);
                 if (!act) { document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
+                if (!act.startedAt) {
+                    act.startedAt = Date.now();
+                    if (act.status === 'rascunho') act.status = 'enviada';
+                    await saveOne(act);
+                }
                 // mostrar conteúdo
                 document.getElementById('atividade-title').innerText = act.title;
                 document.getElementById('atividade-desc').innerText = act.desc;
@@ -1093,7 +1299,7 @@
             async function submitActivityResponse() {
                 const aid = getQueryParam('atividade');
                 if (!aid) return alert('Atividade inválida');
-                const act = getActivities().find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
+                const act = (await getActivities()).find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
                 const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
                 const texto = (document.getElementById('resp-text').value || '').trim();
                 const fileInput = document.getElementById('resp-file');
@@ -1109,9 +1315,10 @@
                 }
 
                 act.responses = act.responses || [];
+                if (!act.startedAt) act.startedAt = Date.now();
                 act.responses.push(resp);
-                act.status = act.status === 'enviada' ? 'em execução' : (act.status || 'em execução');
                 act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
+                act.status = act.responses.length >= (act.expected || 1) ? 'finalizada' : 'em execução';
                 await saveOne(act);
 
                 // Tentar gravar submissão separada na tabela `activity_submissions` quando activity estiver no DB
@@ -1143,28 +1350,36 @@
             // Gerar link público e marcar como enviada
             function generateActivityLink(activityId) { const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
 
-            function sendActivityAsLink(activityId) {
-                const act = getActivities().find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
-                // salvar link meta
+            async function sendActivityAsLink(activityId) {
+                const act = (await getActivities()).find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
+                // salvar link meta local e no Supabase se disponível
                 const linksKey = 'teca_activity_links';
                 const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
                 links.push({ id: 'l_' + Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
-                act.status = 'enviada'; act.sent_at = Date.now(); saveOne(act); navigator.clipboard && navigator.clipboard.writeText(url);
-                alert('Link copiado para a área de transferência e atividade marcada como enviada.'); renderActivities(); renderTaskStates();
+                act.status = 'enviada'; act.sent_at = Date.now();
+                if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
+                    try {
+                        await _supabase.from('activity_links').insert([{ activity_id: act.id, url, sent_at: new Date().toISOString(), status: 'sent' }]);
+                    } catch (e) { console.warn('Failed to save activity link', e); }
+                }
+                await saveOne(act);
+                if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(url).catch(() => { });
+                alert('Link copiado para a área de transferência e atividade marcada como enviada.');
+                renderTaskStates();
             }
 
             // Render lista centralizada de tarefas/submissões para admin
-            function renderTasks() {
-                const container = document.getElementById('admin-content'); if (!container) return; const acts = getActivities();
+            async function renderTasks() {
+                const container = document.getElementById('admin-tasks-container'); if (!container) return; const acts = await getActivities();
                 const rows = [];
                 acts.forEach(act => {
                     (act.responses || []).forEach(r => {
-                        rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: act.status || 'enviada', sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
+                        rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: r.analysis ? 'avaliada' : (act.status || 'enviada'), sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? r.analysis.evaluated_at || Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
                     });
                 });
-                if (!rows.length) { container.innerHTML = '<p style="color:#8b949e">Nenhuma tarefa enviada ainda.</p>'; return; }
+                if (!rows.length) { container.innerHTML = '<p style="color:var(--muted)">Nenhuma tarefa enviada ainda.</p>'; return; }
                 container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r => {
-                    return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}</small><br><div style="margin-top:6px;"><button onclick="(function(aId){ window.location='?atividade='+aId })(\'${r.activityId}\')">Abrir atividade</button></div></div>`;
+                    return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'} • Início: ${r.startedAt ? new Date(r.startedAt).toLocaleString() : '—'} • Avaliada: ${r.evaluatedAt ? new Date(r.evaluatedAt).toLocaleString() : '—'}</small><br>${r.resumo ? `<div style="margin-top:8px; color:var(--muted);">Resumo IA: ${r.resumo}</div>` : ''}<div style="margin-top:8px;"><button onclick="window.location='?atividade='+encodeURIComponent('${r.activityId}')">Abrir atividade</button></div></div>`;
                 }).join('');
             }
 
@@ -1216,7 +1431,7 @@
                 }
             }
 
-            async function carregarAdmin() {
+            async function renderAdminSettings() {
                 const { data } = await _supabase
                     .from('relatorios_cientificos')
                     .select('*')
@@ -1314,11 +1529,11 @@
             }
 
             if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
-                // ocultar elementos gerais que não devem aparecer no admin
-                const banner = document.getElementById('user-banner'); if (banner) banner.style.display = 'none';
-                const sb = document.querySelector('.sidebar'); if (sb) sb.style.display = 'none';
+                // marcar body para CSS admin (oculta banner e sidebar) e iniciar admin
+                try { document.body.classList.add('admin-mode'); } catch (e) { }
                 irPara('tela-admin');
                 carregarAdmin();
+                showAdminTab('activities');
             }
     </script>
 
