@@ -19,70 +19,6 @@
             --accent: #7c3aed;
         }
 
-        /* showUserLogs is injected later in the script; no inline JS inside <style> */
-
-        if (user==='All') {
-            const users=Object.keys(grouped);
-
-            container.innerHTML=users.map(u=> ` <h4>$ {
-                    u
-                }
-
-                ($ {
-                        (grouped[u]||[]).length
-
-                    })</h4> $ {
-                    (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
-                            l.nome || ''
-                        }
-
-                        - $ {
-                            new Date(l.data).toLocaleString()
-                        }
-
-                        </strong><br> <em>Pergunta/seleção:</em> $ {
-                            l.pergunta
-                        }
-
-                        <br> <em>Resposta:</em> $ {
-                            l.resposta
-                        }
-
-                        </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
-                }
-
-                `).join('');
-            return;
-        }
-
-        const list=grouped[user] || [];
-
-        if ( !list.length) {
-            container.innerHTML=`<p>Nenhuma interação registrada para $ {
-                user
-            }
-
-            .</p>`;
-            return;
-        }
-
-        container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
-                new Date(l.data).toLocaleString()
-            }
-
-            </strong><br> <em>Pergunta/seleção:</em> $ {
-                l.pergunta
-            }
-
-            <br> <em>Resposta:</em> $ {
-                l.resposta
-            }
-
-            </div> `).join('');
-        }
-
-        /* showUserLogs is injected later in the script; no inline JS inside <style> */
-
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg);
@@ -106,14 +42,26 @@
             background: var(--sidebar-bg);
             border-left: 1px solid #30363d;
             padding: 25px;
-            display: flex;
+            display: none;
             flex-direction: column;
             box-sizing: border-box;
         }
 
+        /* Mostrar sidebar apenas quando estiver dentro de modo não-admin ou quando estiver na tela-lab/intro */
+        body:not(.admin-mode) .sidebar {
+            display: none !important;
+        }
+
+        .admin-mode .sidebar {
+            display: flex !important;
+        }
+
         /* quando em modo admin, ocultar elementos não relevantes */
-        .admin-mode .sidebar,
         .admin-mode #user-banner {
+            display: none !important;
+        }
+
+        .admin-mode #tela-chamada {
             display: none !important;
         }
 
@@ -171,7 +119,11 @@
         }
 
         .hidden {
-            display: none;
+            display: none !important;
+        }
+
+        #user-banner:not(.hidden) {
+            display: flex !important;
         }
 
         .step-label {
@@ -304,7 +256,7 @@
     <div id="app">
 
         <div id="user-banner" class="container hidden"
-            style="max-width:650px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            style="max-width:650px; margin-bottom:16px; justify-content:space-between; align-items:center;">
             <div style="font-size:14px;color:#8b949e;">Logado: <strong id="banner-name"></strong></div>
             <button style="width:120px;" onclick="logoutUser()">Sair</button>
         </div>
