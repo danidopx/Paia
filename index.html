@@ -21,64 +21,64 @@
 
         /* showUserLogs is injected later in the script; no inline JS inside <style> */
 
-            if (user==='All') {
-                const users=Object.keys(grouped);
+        if (user==='All') {
+            const users=Object.keys(grouped);
 
-                container.innerHTML=users.map(u=> ` <h4>$ {
-                        u
-                    }
+            container.innerHTML=users.map(u=> ` <h4>$ {
+                    u
+                }
 
-                    ($ {
-                            (grouped[u]||[]).length
+                ($ {
+                        (grouped[u]||[]).length
 
-                        })</h4> $ {
-                        (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
-                                l.nome || ''
-                            }
+                    })</h4> $ {
+                    (grouped[u]||[]).length ? (grouped[u]||[]).map(l=> ` <div class="admin-row" > <strong>$ {
+                            l.nome || ''
+                        }
 
-                            - $ {
-                                new Date(l.data).toLocaleString()
-                            }
+                        - $ {
+                            new Date(l.data).toLocaleString()
+                        }
 
-                            </strong><br> <em>Pergunta/seleção:</em> $ {
-                                l.pergunta
-                            }
+                        </strong><br> <em>Pergunta/seleção:</em> $ {
+                            l.pergunta
+                        }
 
-                            <br> <em>Resposta:</em> $ {
-                                l.resposta
-                            }
+                        <br> <em>Resposta:</em> $ {
+                            l.resposta
+                        }
 
-                            </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
-                    }
+                        </div> `).join('') : '<p>Nenhuma interação registrada.</p>'
+                }
 
-                    `).join('');
-                return;
+                `).join('');
+            return;
+        }
+
+        const list=grouped[user] || [];
+
+        if ( !list.length) {
+            container.innerHTML=`<p>Nenhuma interação registrada para $ {
+                user
             }
 
-            const list=grouped[user] || [];
+            .</p>`;
+            return;
+        }
 
-            if ( !list.length) {
-                container.innerHTML=`<p>Nenhuma interação registrada para $ {
-                    user
-                }
-
-                .</p>`;
-                return;
+        container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
+                new Date(l.data).toLocaleString()
             }
 
-            container.innerHTML=list.map(l=> ` <div class="admin-row" > <strong>$ {
-                    new Date(l.data).toLocaleString()
-                }
+            </strong><br> <em>Pergunta/seleção:</em> $ {
+                l.pergunta
+            }
 
-                </strong><br> <em>Pergunta/seleção:</em> $ {
-                    l.pergunta
-                }
+            <br> <em>Resposta:</em> $ {
+                l.resposta
+            }
 
-                <br> <em>Resposta:</em> $ {
-                    l.resposta
-                }
-
-                </div> `).join('');
+            </div> `).join('');
         }
 
         /* showUserLogs is injected later in the script; no inline JS inside <style> */
@@ -396,7 +396,8 @@
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
                 <div>
                     <h2>Painel da Professora Teca</h2>
-                    <div style="color: var(--muted); font-size:14px; margin-top:4px;">Gerencie atividades, envios e avaliações.</div>
+                    <div style="color: var(--muted); font-size:14px; margin-top:4px;">Gerencie atividades, envios e
+                        avaliações.</div>
                 </div>
                 <button class="theme-toggle" onclick="toggleTheme()">Alternar tema</button>
             </div>
@@ -412,16 +413,21 @@
                     <div style="flex:1; min-width:280px;">
                         <h4>Criar atividade</h4>
                         <input id="act-title" class="teca-input" placeholder="Título da atividade">
-                        <textarea id="act-desc" rows="4" class="teca-input" placeholder="Descrição / instruções"></textarea>
+                        <textarea id="act-desc" rows="4" class="teca-input"
+                            placeholder="Descrição / instruções"></textarea>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
-                            <button onclick="improveActivityDescription()" style="flex:0 0 auto;">Melhorar com IA</button>
+                            <button onclick="improveActivityDescription()" style="flex:0 0 auto;">Melhorar com
+                                IA</button>
                             <span id="description-ai-status" style="font-size:13px;color:var(--muted);"></span>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)" style="flex:1; min-width:160px;">
-                            <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)" style="width:160px; min-width:140px;">
+                            <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)"
+                                style="flex:1; min-width:160px;">
+                            <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)"
+                                style="width:160px; min-width:140px;">
                         </div>
-                        <label style="font-size:13px;color:var(--muted);margin-top:6px;display:block;">Anexo opcional para a atividade (imagem).</label>
+                        <label style="font-size:13px;color:var(--muted);margin-top:6px;display:block;">Anexo opcional
+                            para a atividade (imagem).</label>
                         <input id="act-attachment" type="file" style="margin-top:8px;">
                         <button onclick="createActivity()">Criar atividade</button>
                     </div>
@@ -442,7 +448,8 @@
                 <div id="admin-content"></div>
             </div>
 
-            <div style="margin-top:18px; text-align:right;"><button onclick="location.href='index.html'">Sair do Admin</button></div>
+            <div style="margin-top:18px; text-align:right;"><button onclick="location.href='index.html'">Sair do
+                    Admin</button></div>
         </div>
 
     </div>
@@ -1237,7 +1244,7 @@
                 const list = grouped[user] || [];
                 if (user === 'All') {
                     const users = Object.keys(grouped);
-                    container.innerHTML = users.map(u => ` <h4>${u} (${(grouped[u]||[]).length})</h4> ${ (grouped[u]||[]).length ? (grouped[u]||[]).map(l => ` <div class="admin-row"><strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('') : '<p>Nenhuma interação registrada.</p>' } `).join('');
+                    container.innerHTML = users.map(u => ` <h4>${u} (${(grouped[u] || []).length})</h4> ${(grouped[u] || []).length ? (grouped[u] || []).map(l => ` <div class="admin-row"><strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('') : '<p>Nenhuma interação registrada.</p>'} `).join('');
                     return;
                 }
                 if (!list.length) {
@@ -1303,13 +1310,16 @@
                 const nome = (document.getElementById('resp-nome').value || '').trim() || 'anônimo';
                 const texto = (document.getElementById('resp-text').value || '').trim();
                 const fileInput = document.getElementById('resp-file');
-                if (!texto && (!fileInput || !fileInput.files || !fileInput.files[0])) return alert('Envie texto ou anexo.');
+                const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+                if (!texto && !file) return alert('Envie texto ou anexo.');
+                if (file && !file.type.startsWith('image/')) return alert('Apenas imagens são aceitas como anexo.');
+                if (file && file.size > 5 * 1024 * 1024) return alert('Anexo muito grande. Limite de 5MB.');
 
                 const resp = { id: 'r_' + Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
 
-                if (fileInput && fileInput.files && fileInput.files[0]) {
+                if (file) {
                     try {
-                        const uploaded = await uploadFileWithFallback(fileInput.files[0]);
+                        const uploaded = await uploadFileWithFallback(file);
                         resp.imagens.push(uploaded);
                     } catch (e) { return alert('Erro no upload: ' + e.message); }
                 }
