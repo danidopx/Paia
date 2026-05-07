@@ -622,6 +622,17 @@
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
             initHomeButtons();
+            document.addEventListener('mouseup', () => {
+                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
+            });
+            document.addEventListener('dblclick', () => {
+                ignorarSelecaoAte = Date.now() + 350;
+            });
+            document.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
+                }, 500);
+            });
 
             const modalPassword = document.getElementById('modal-password');
             if (modalPassword && !modalPassword.dataset.bound) {
@@ -1311,12 +1322,21 @@
             }
         };
 
+        let ultimaSelecao = '';
+        let ultimoHorario = 0;
+        let ignorarSelecaoAte = 0;
+
         window.analisarSelecao = function analisarSelecao() {
             const sel = window.getSelection().toString().trim();
             console.log('[Teca seleção]', sel);
 
             if (typeof isAdminMode === 'function' && isAdminMode()) return;
             if (!sel || sel.length < 2 || sel.length > 120) return;
+            const agora = Date.now();
+            if (agora < ignorarSelecaoAte) return;
+            if (sel === ultimaSelecao && (agora - ultimoHorario) < 1500) return;
+            ultimaSelecao = sel;
+            ultimoHorario = agora;
             if (typeof window.falarComIA !== 'function') {
                 console.error('[Teca seleção] falarComIA não definida');
                 return;
