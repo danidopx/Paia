@@ -167,6 +167,18 @@
             opacity: 0.95;
         }
 
+        .btn-isis {
+            background: #dfe9d6;
+            color: #2f4a2e;
+            border: 1px solid #b9c9ae;
+        }
+
+        .btn-maya {
+            background: #f3e4a6;
+            color: #6a4f1d;
+            border: 1px solid #d8c37a;
+        }
+
         .theme-light {
             --bg: #f5f7fb;
             --card: #ffffff;
@@ -288,8 +300,8 @@
                 investigação de hoje.</p>
 
             <div style="display:flex; gap:12px; justify-content:center; margin-top: 12px;">
-                <button onclick="openUserEntry('Isis')" style="flex:0 0 140px;">Isis</button>
-                <button onclick="openUserEntry('Maya')" style="flex:0 0 140px;">Maya</button>
+                <button id="btn-isis" type="button" class="btn-isis" style="flex:0 0 140px;">Isis</button>
+                <button id="btn-maya" type="button" class="btn-maya" style="flex:0 0 140px;">Maya</button>
             </div>
 
             <div style="margin-top:18px; color:#8b949e; font-size:13px;">Selecione seu nome acima para entrar.</div>
@@ -595,6 +607,10 @@
             carregarModelos();
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
+            const btnIsis = document.getElementById('btn-isis');
+            const btnMaya = document.getElementById('btn-maya');
+            if (btnIsis) btnIsis.addEventListener('click', () => openUserEntry('Isis'));
+            if (btnMaya) btnMaya.addEventListener('click', () => openUserEntry('Maya'));
         });
 
         let etapa = 0;
