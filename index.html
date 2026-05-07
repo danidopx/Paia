@@ -19,7 +19,6 @@
             const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
             window.applyTheme(current === 'dark' ? 'light' : 'dark');
         };
-        window.analisarSelecao = window.analisarSelecao || function () { };
     </script>
 
     <style>
@@ -609,7 +608,6 @@
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
             initHomeButtons();
-            initSelectionListeners();
         });
 
         let etapa = 0;
@@ -1404,8 +1402,6 @@
             document.addEventListener('dblclick', () => {
                 if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
             });
-
-            function initSelectionListeners() { }
 
             async function salvar() {
                 const btn = document.getElementById('btn-save');
