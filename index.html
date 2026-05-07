@@ -469,6 +469,16 @@
         // --- Modal usuário ---
         let _pendingUser = '';
         function openUserEntry(name) {
+            const users = getUserPasswords();
+            if (!users[name]) {
+                nomeTeca = name;
+                sessionStorage.setItem('nomeTeca', nomeTeca);
+                const inputNome = document.getElementById('nome-teca');
+                if (inputNome) inputNome.value = nomeTeca;
+                showUserBanner(nomeTeca);
+                irPara('tela-intro');
+                return;
+            }
             _pendingUser = name;
             document.getElementById('selected-user').innerText = name;
             document.getElementById('modal-password').value = '';
