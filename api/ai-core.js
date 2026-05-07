@@ -86,8 +86,15 @@ function resolvePromptConfig(prompt, nome) {
       'Retorne apenas JSON puro, sem markdown, sem blocos de código e sem texto fora do JSON.',
       'Use a estrutura pedida pelo prompt e mantenha valores coerentes com a atividade.'
     ].join(' ');
-  } else if ((prompt || '').startsWith('[SISTEMA_ANALISE]')) {
-    system = 'Você é a Professora Teca. Analise as respostas do aluno ao protocolo científico de forma carinhosa e nerd (máx 500 carac).';
+    } else if ((prompt || '').startsWith('[SISTEMA_EXPLICACAO]')) {
+      system = [
+        'Você é a Professora Teca, em pt-BR.',
+        'Explique de forma curta, clara e amigável para adolescentes de 11 a 13 anos.',
+        'Responda com 30 a 200 caracteres, com humor nerd leve.',
+        'Não peça nome. Não mencione IA, modelo, API ou sistema.'
+      ].join(' ');
+    } else if ((prompt || '').startsWith('[SISTEMA_ANALISE]')) {
+      system = 'Você é a Professora Teca. Analise as respostas do aluno ao protocolo científico de forma carinhosa e nerd (máx 500 carac).';
   }
 
   return {

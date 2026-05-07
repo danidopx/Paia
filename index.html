@@ -1414,10 +1414,16 @@
                 return !!(container && container.closest && container.closest('input, textarea, select, button, [contenteditable="true"]'));
             }
 
-            window.analisarSelecao = async function analisarSelecao() {
+            window.analisarSelecao = async function analisarSelecao(event) {
                 try {
                     if (isAdminMode()) return;
                     if (selecaoEmAndamento) return;
+
+                    const sidebar = document.querySelector('.sidebar');
+                    if (!sidebar) return;
+                    const sidebarStyle = getComputedStyle(sidebar);
+                    if (sidebarStyle.display === 'none' || sidebarStyle.visibility === 'hidden') return;
+                    if (event && event.target && event.target.closest && event.target.closest('input, textarea, select, button')) return;
 
                     const sel = window.getSelection ? window.getSelection().toString().trim() : '';
                     if (sel.length < 2) return;
@@ -1430,17 +1436,18 @@
                     selecaoEmAndamento = true;
 
                     const side = document.getElementById('side-conteudo');
-                    const sidebar = document.querySelector('.sidebar');
                     if (sidebar && !document.body.classList.contains('admin-mode')) {
                         document.body.classList.add('sidebar-visible');
                     }
                     if (side) side.innerText = 'Consultando...';
 
-                    const prompt = `Explique de forma curta e simples a palavra ou frase "${sel}" para uma estudante.`;
+                    const prompt = `[SISTEMA_EXPLICACAO] Explique de forma curta para adolescente de 11 a 13 anos: ${sel}`;
+                    const nomeSelecionado = typeof nomeTeca !== 'undefined' ? nomeTeca : (sessionStorage.getItem('nomeTeca') || 'Teca');
+                    const modelos = typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : [];
                     const r = await fetch('/api/ai', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, nome: sessionStorage.getItem('nomeTeca') || 'Teca' })
+                        body: JSON.stringify({ prompt, nome: nomeSelecionado, preferredModels: modelos })
                     });
                     const data = await r.json().catch(() => ({}));
 
@@ -1459,11 +1466,18 @@
                 }
             };
 
+            let __tecaSelecaoDebounce = null;
+            function analisarSelecaoDebounced(event) {
+                clearTimeout(__tecaSelecaoDebounce);
+                __tecaSelecaoDebounce = setTimeout(() => window.analisarSelecao(event), 180);
+            }
+
             function initSelectionListeners() {
                 if (window.__tecaSelectionListenersBound) return;
                 window.__tecaSelectionListenersBound = true;
-                document.addEventListener('mouseup', () => window.analisarSelecao());
-                document.addEventListener('touchend', () => setTimeout(() => window.analisarSelecao(), 250));
+                document.addEventListener('mouseup', analisarSelecaoDebounced);
+                document.addEventListener('dblclick', window.analisarSelecao);
+                document.addEventListener('touchend', analisarSelecaoDebounced);
             }
 
             async function salvar() {
