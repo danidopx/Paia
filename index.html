@@ -32,7 +32,6 @@
             }
         };
         window.falarComIA = window.falarComIA || async function () { };
-        window.analisarSelecao = function () { };
     </script>
 
     <style>
@@ -622,17 +621,7 @@
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
             initHomeButtons();
-            document.addEventListener('mouseup', () => {
-                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
-            });
-            document.addEventListener('dblclick', () => {
-                ignorarSelecaoAte = Date.now() + 350;
-            });
-            document.addEventListener('touchend', () => {
-                setTimeout(() => {
-                    if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
-                }, 500);
-            });
+            initSelectionListeners();
 
             const modalPassword = document.getElementById('modal-password');
             if (modalPassword && !modalPassword.dataset.bound) {
@@ -1324,19 +1313,30 @@
 
         let ultimaSelecao = '';
         let ultimoHorario = 0;
-        let ignorarSelecaoAte = 0;
+
+        function getSelectionContainer() {
+            const sel = window.getSelection ? window.getSelection() : null;
+            if (!sel || !sel.rangeCount) return null;
+            const range = sel.getRangeAt(0);
+            const node = range.commonAncestorContainer;
+            return node && node.nodeType === 1 ? node : node ? node.parentElement : null;
+        }
+
+        function isEditableSelectionTarget() {
+            const container = getSelectionContainer();
+            return !!(container && container.closest && container.closest('input, textarea, select, button, [contenteditable="true"]'));
+        }
 
         window.analisarSelecao = function analisarSelecao() {
-            const sel = window.getSelection().toString().trim();
-            console.log('[Teca seleção]', sel);
-
             if (typeof isAdminMode === 'function' && isAdminMode()) return;
+            if (isEditableSelectionTarget()) return;
+            const sel = window.getSelection().toString().trim();
             if (!sel || sel.length < 2 || sel.length > 120) return;
             const agora = Date.now();
-            if (agora < ignorarSelecaoAte) return;
             if (sel === ultimaSelecao && (agora - ultimoHorario) < 1500) return;
             ultimaSelecao = sel;
             ultimoHorario = agora;
+            console.log('[Teca seleção]', sel);
             if (typeof window.falarComIA !== 'function') {
                 console.error('[Teca seleção] falarComIA não definida');
                 return;
@@ -1344,6 +1344,14 @@
 
             window.falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: "${sel}"`);
         };
+
+        function initSelectionListeners() {
+            if (window.__tecaSelectionListenersBound) return;
+            window.__tecaSelectionListenersBound = true;
+            document.addEventListener('mouseup', () => window.analisarSelecao());
+            document.addEventListener('dblclick', () => window.analisarSelecao());
+            document.addEventListener('touchend', () => setTimeout(() => window.analisarSelecao(), 500));
+        }
 
         async function loadPublicActivityIfAny() {
                 const aid = getQueryParam('atividade');
