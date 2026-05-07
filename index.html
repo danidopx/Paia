@@ -6,6 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protocolo Científico v2.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.getSavedTheme = window.getSavedTheme || function () {
+            try { return localStorage.getItem('teca_theme') || 'light'; } catch (e) { return 'light'; }
+        };
+        window.applyTheme = window.applyTheme || function (theme) {
+            document.body.classList.remove('theme-light', 'theme-dark');
+            document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+            try { localStorage.setItem('teca_theme', theme); } catch (e) { }
+        };
+        window.toggleTheme = window.toggleTheme || function () {
+            const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+            window.applyTheme(current === 'dark' ? 'light' : 'dark');
+        };
+        window.analisarSelecao = window.analisarSelecao || function () { };
+    </script>
 
     <style>
         :root {
@@ -262,7 +277,7 @@
     </style>
 </head>
 
-<body onmouseup="window.analisarSelecao()" ontouchend="setTimeout(window.analisarSelecao, 500)">
+<body onmouseup="window.analisarSelecao && window.analisarSelecao()" ontouchend="setTimeout(function(){ if (window.analisarSelecao) window.analisarSelecao(); }, 500)">
 
     <div id="app">
 
@@ -299,8 +314,8 @@
                 investigação de hoje.</p>
 
             <div style="display:flex; gap:12px; justify-content:center; margin-top: 12px;">
-                <button id="btn-isis" type="button" class="btn-isis" style="flex:0 0 140px;">Isis</button>
-                <button id="btn-maya" type="button" class="btn-maya" style="flex:0 0 140px;">Maya</button>
+                <button id="btn-isis" type="button" class="btn-isis" style="flex:0 0 140px;" onclick="openUserEntry('Isis')">Isis</button>
+                <button id="btn-maya" type="button" class="btn-maya" style="flex:0 0 140px;" onclick="openUserEntry('Maya')">Maya</button>
             </div>
 
             <div style="margin-top:18px; color:#8b949e; font-size:13px;">Selecione seu nome acima para entrar.</div>
@@ -479,7 +494,7 @@
 
         // --- Modal usuário ---
         let _pendingUser = '';
-        function openUserEntry(name) {
+        window.openUserEntry = function(name) {
             const users = getUserPasswords();
             if (!users[name]) {
                 nomeTeca = name;
@@ -494,14 +509,14 @@
             document.getElementById('selected-user').innerText = name;
             document.getElementById('modal-password').value = '';
             document.getElementById('user-entry-modal').classList.remove('hidden');
-        }
+        };
 
-        function closeUserModal() {
+        window.closeUserModal = function() {
             document.getElementById('user-entry-modal').classList.add('hidden');
             _pendingUser = '';
-        }
+        };
 
-        function submitUserEntry() {
+        window.submitUserEntry = function() {
             const pass = document.getElementById('modal-password').value || '';
 
             if (!_pendingUser) return alert('Usuário não selecionado.');
@@ -524,9 +539,9 @@
             const inputNome = document.getElementById('nome-teca');
             if (inputNome) inputNome.value = nomeTeca;
             showUserBanner(nomeTeca);
-            closeUserModal();
+            window.closeUserModal();
             irPara('tela-intro');
-        }
+        };
 
         function salvarNomeTeca(nome) {
             nomeTeca = nome.trim();
@@ -603,14 +618,11 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            window.applyTheme(getSavedTheme());
+            window.applyTheme(window.getSavedTheme());
             carregarModelos();
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
-            const btnIsis = document.getElementById('btn-isis');
-            const btnMaya = document.getElementById('btn-maya');
-            if (btnIsis) btnIsis.addEventListener('click', () => openUserEntry('Isis'));
-            if (btnMaya) btnMaya.addEventListener('click', () => openUserEntry('Maya'));
+            initHomeButtons();
         });
 
         let etapa = 0;
@@ -1232,11 +1244,36 @@
                 container.innerHTML = list.map(l => ` <div class="admin-row"><strong>${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('');
             }
 
-            function getSavedTheme() { return localStorage.getItem('teca_theme') || 'light'; }
-            window.applyTheme = function(theme) { document.body.classList.remove('theme-light', 'theme-dark'); document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light'); localStorage.setItem('teca_theme', theme); }
-            window.toggleTheme = function() { const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; window.applyTheme(current === 'dark' ? 'light' : 'dark'); }
+        function getSavedTheme() {
+            try { return localStorage.getItem('teca_theme') || 'light'; }
+            catch (e) { return 'light'; }
+        }
+        window.getSavedTheme = window.getSavedTheme || getSavedTheme;
+        window.applyTheme = window.applyTheme || function(theme) {
+            document.body.classList.remove('theme-light', 'theme-dark');
+            document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+            try { localStorage.setItem('teca_theme', theme); } catch (e) { }
+        };
+        window.toggleTheme = window.toggleTheme || function() {
+            const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+            window.applyTheme(current === 'dark' ? 'light' : 'dark');
+        };
 
-            async function loadPublicActivityIfAny() {
+        function initHomeButtons() {
+            const btnIsis = document.getElementById('btn-isis');
+            const btnMaya = document.getElementById('btn-maya');
+            if (btnIsis && !btnIsis.dataset.bound) {
+                btnIsis.dataset.bound = '1';
+                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
+            }
+            if (btnMaya && !btnMaya.dataset.bound) {
+                btnMaya.dataset.bound = '1';
+                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
+            }
+        }
+        window.initHomeButtons = initHomeButtons;
+
+        async function loadPublicActivityIfAny() {
                 const aid = getQueryParam('atividade');
                 if (!aid) return;
                 const acts = await getActivities();
