@@ -263,7 +263,7 @@
     </style>
 </head>
 
-<body onmouseup="analisarSelecao()" ontouchend="setTimeout(analisarSelecao, 500)">
+<body onmouseup="window.analisarSelecao()" ontouchend="setTimeout(window.analisarSelecao, 500)">
 
     <div id="app">
 
@@ -603,7 +603,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            applyTheme(getSavedTheme());
+            window.applyTheme(getSavedTheme());
             carregarModelos();
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
@@ -1103,7 +1103,6 @@
 
         async function openActivity(id) {
             const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
-
             async function saveOne(act) { await saveActivityToDB(act); await renderActivities(); }
 
             async function adminAddResponse(activityId) {
@@ -1234,8 +1233,8 @@
             }
 
             function getSavedTheme() { return localStorage.getItem('teca_theme') || 'light'; }
-            function applyTheme(theme) { document.body.classList.remove('theme-light', 'theme-dark'); document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light'); localStorage.setItem('teca_theme', theme); }
-            function toggleTheme() { const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; applyTheme(current === 'dark' ? 'light' : 'dark'); }
+            window.applyTheme = function(theme) { document.body.classList.remove('theme-light', 'theme-dark'); document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light'); localStorage.setItem('teca_theme', theme); }
+            window.toggleTheme = function() { const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; window.applyTheme(current === 'dark' ? 'light' : 'dark'); }
 
             async function loadPublicActivityIfAny() {
                 const aid = getQueryParam('atividade');
@@ -1376,7 +1375,7 @@
             window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
 
             let ultimaSelecao = "";
-            function analisarSelecao() {
+            window.analisarSelecao = function() {
                 const sel = window.getSelection().toString().trim();
 
                 if (sel.length > 1 && sel.length < 120 && sel !== ultimaSelecao) {
