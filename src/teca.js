@@ -14,6 +14,7 @@ export function createTecaAssistant({ getUserName, isAdminMode, getPreferredMode
   let lastSelection = '';
   let lastAt = 0;
   let listenersBound = false;
+  let lastExplained = '';
 
   function setSidebarMessage(message) {
     const status = document.getElementById('ai-status');
@@ -51,9 +52,22 @@ export function createTecaAssistant({ getUserName, isAdminMode, getPreferredMode
         }),
       });
 
-      const data = await response.json();
-      side.textContent = data?.result || 'A Teca não achou uma explicação agora. Tente outra palavra.';
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error('[Teca API erro]', response.status, data);
+        side.textContent = 'A Teca encontrou uma estante trancada. Verifique a chave do laboratório.';
+        return;
+      }
+
+      if (data?.result) {
+        side.textContent = data.result;
+        lastExplained = String(prompt || '').replace(/^\[SISTEMA_EXPLICACAO\]\s*/i, '').trim();
+      } else {
+        console.warn('[Teca sem result]', data);
+        side.textContent = 'A Teca voltou sem cartão de resposta. Veja o console.';
+      }
     } catch (error) {
+      console.error('[Teca explicação erro]', error);
       side.textContent = 'A Teca tropeçou nos livros. Tente de novo em instantes.';
     } finally {
       if (status) {
@@ -87,12 +101,24 @@ export function createTecaAssistant({ getUserName, isAdminMode, getPreferredMode
 
     lastSelection = selection;
     lastAt = now;
+    console.log('[Teca seleção]', selection);
+    return explicarTextoTeca(selection);
+  }
 
-    falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: ${selection}`);
+  async function explicarTextoTeca(texto) {
+    const clean = String(texto || '').trim();
+    if (clean.length < MIN_SELECTION || clean.length > MAX_SELECTION) {
+      return;
+    }
+    lastSelection = clean;
+    lastAt = Date.now();
+    return falarComIA('[SISTEMA_EXPLICACAO] ' + clean);
   }
 
   function explainSelectionManually() {
-    analisarSelecao();
+    const text = window.getSelection()?.toString().trim() || lastSelection;
+    console.log('[Teca seleção]', text);
+    return explicarTextoTeca(text);
   }
 
   function initSelectionListeners() {
@@ -100,10 +126,14 @@ export function createTecaAssistant({ getUserName, isAdminMode, getPreferredMode
       return;
     }
     listenersBound = true;
-    document.addEventListener('mouseup', analisarSelecao);
-    document.addEventListener('dblclick', analisarSelecao);
+    document.addEventListener('mouseup', (event) => {
+      setTimeout(() => analisarSelecao(event), 100);
+    });
+    document.addEventListener('dblclick', (event) => {
+      setTimeout(() => analisarSelecao(event), 100);
+    });
     document.addEventListener('touchend', () => {
-      setTimeout(analisarSelecao, 500);
+      setTimeout(analisarSelecao, 400);
     });
   }
 
@@ -114,6 +144,7 @@ export function createTecaAssistant({ getUserName, isAdminMode, getPreferredMode
   return {
     falarComIA,
     analisarSelecao,
+    explicarTextoTeca,
     explainSelectionManually,
     initSelectionListeners,
     setSidebarMessage,

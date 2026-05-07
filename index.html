@@ -18,6 +18,17 @@
       --shadow: 0 18px 50px rgba(31, 42, 55, 0.08);
       --radius: 22px;
     }
+    body.dark-mode {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-soft: #0b1220;
+      --text: #e5eefc;
+      --muted: #9db0d0;
+      --line: #22304a;
+      --accent: #7ea2ff;
+      --success: #17311d;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -83,6 +94,12 @@
       text-decoration: none;
       font-weight: 600;
       font-size: 14px;
+    }
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
     }
     .screen {
       display: none;
@@ -307,7 +324,11 @@
             <p>Paia MVP</p>
           </div>
         </div>
-        <a href="/admin.html">Admin</a>
+        <div class="top-actions">
+          <button id="theme-toggle-btn" class="ghost-btn" type="button">Tema</button>
+          <button id="back-home-btn" class="ghost-btn hidden" type="button">Voltar ao início</button>
+          <a href="/admin.html?mode=admin">Admin</a>
+        </div>
       </div>
 
       <section id="home-screen" class="screen home is-active">

@@ -40,6 +40,7 @@ function extractText(data) {
 async function callGemini(prompt, mode) {
   const apiKey = getApiKey();
   if (!apiKey) {
+    console.error('[AI] missing key for mode', mode);
     return {
       status: 500,
       body: {
@@ -76,12 +77,23 @@ async function callGemini(prompt, mode) {
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        console.error('[AI] Gemini error', { status: response.status, data });
         throw new Error(data?.error?.message || `Gemini respondeu com status ${response.status}`);
       }
 
       const result = extractText(data);
+      if (!result) {
+        console.error('[Gemini erro]', { model, mode, data });
+        return {
+          status: 502,
+          body: {
+            error: 'Gemini respondeu sem texto.',
+            raw: data,
+          },
+        };
+      }
       return {
         status: 200,
         body: {
@@ -89,6 +101,8 @@ async function callGemini(prompt, mode) {
         },
       };
     } catch (error) {
+      console.error('[Gemini erro]', error);
+      console.error('[AI] Gemini request failed', { model, mode, error: error?.message || error });
       lastError = error;
     }
   }

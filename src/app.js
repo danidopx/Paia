@@ -18,6 +18,7 @@ const state = {
 
 const dom = {};
 let teca = null;
+const THEME_STORAGE_KEY = 'paia_theme';
 
 function qs(selector) {
   return document.querySelector(selector);
@@ -39,6 +40,9 @@ function cacheDom() {
   dom.completeState = qs('#complete-state');
   dom.questionState = qs('#question-state');
   dom.explainBtn = qs('#explain-btn');
+  dom.themeToggle = qs('#theme-toggle-btn');
+  dom.backHome = qs('#back-home-btn');
+  dom.sideContent = qs('#side-conteudo');
 }
 
 function isAdminMode() {
@@ -46,7 +50,7 @@ function isAdminMode() {
 }
 
 function getPreferredModels() {
-  return ['gemini-2.0-flash'];
+  return [];
 }
 
 function setScreen(name) {
@@ -56,7 +60,51 @@ function setScreen(name) {
   if (dom.lab) {
     dom.lab.classList.toggle('is-active', name === 'lab');
   }
+  if (dom.backHome) {
+    dom.backHome.classList.toggle('hidden', name !== 'lab');
+  }
+  document.body.classList.toggle('sidebar-visible', name === 'lab');
   document.body.dataset.screen = name;
+}
+
+function getSavedTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+  } catch (_) {
+    return 'light';
+  }
+}
+
+function applyTheme(theme) {
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.body.classList.toggle('dark-mode', next === 'dark');
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  } catch (_) {}
+  if (dom.themeToggle) {
+    dom.themeToggle.textContent = next === 'dark' ? 'Tema claro' : 'Tema escuro';
+  }
+  return next;
+}
+
+function toggleTheme() {
+  return applyTheme(getSavedTheme() === 'dark' ? 'light' : 'dark');
+}
+
+function voltarInicio() {
+  sessionStorage.removeItem('nomeTeca');
+  sessionStorage.removeItem('paia-user');
+  document.body.classList.remove('sidebar-visible');
+  state.user = '';
+  state.protocol = emptyProtocolState();
+  if (dom.answerBox) dom.answerBox.value = '';
+  if (dom.themeLabel) dom.themeLabel.textContent = 'Escolha um tema para iniciar o protocolo.';
+  if (dom.progressLabel) dom.progressLabel.textContent = '0/4 perguntas';
+  if (dom.questionText) dom.questionText.textContent = 'Selecione um tema para a Professora Teca gerar as perguntas.';
+  if (dom.completeState) dom.completeState.classList.add('hidden');
+  if (dom.questionState) dom.questionState.classList.remove('hidden');
+  if (dom.sideContent) dom.sideContent.textContent = 'Selecione uma palavra ou frase e eu explico.';
+  setScreen('home');
 }
 
 function renderThemeButtons() {
@@ -237,20 +285,28 @@ function attachEvents() {
     dom.completeState.classList.add('hidden');
     dom.questionState.classList.remove('hidden');
   });
-  dom.explainBtn.addEventListener('click', () => teca.explainSelectionManually());
+  dom.explainBtn?.addEventListener('click', () => teca.explainSelectionManually());
+  dom.themeToggle?.addEventListener('click', toggleTheme);
+  dom.backHome?.addEventListener('click', voltarInicio);
 }
 
 function exposeGlobals() {
   window.falarComIA = teca.falarComIA;
   window.analisarSelecao = teca.analisarSelecao;
+  window.explicarTextoTeca = teca.explicarTextoTeca;
   window.initHomeButtons = initHomeButtons;
   window.initSelectionListeners = initSelectionListeners;
-  window.applyTheme = () => {};
-  window.getSavedTheme = () => '';
-  window.toggleTheme = () => {};
+  window.applyTheme = applyTheme;
+  window.getSavedTheme = getSavedTheme;
+  window.toggleTheme = toggleTheme;
+  window.voltarInicio = voltarInicio;
 }
 
 function boot() {
+  if (isAdminMode()) {
+    window.location.replace('/admin.html?mode=admin');
+    return;
+  }
   cacheDom();
   teca = createTecaAssistant({
     getUserName: () => state.user || sessionStorage.getItem('nomeTeca') || '',
@@ -262,6 +318,7 @@ function boot() {
   attachEvents();
   initHomeButtons();
   initSelectionListeners();
+  applyTheme(getSavedTheme());
   setScreen(state.user ? 'lab' : 'home');
   if (state.user) {
     dom.userLabel.textContent = `Bem-vinda, ${state.user}`;
