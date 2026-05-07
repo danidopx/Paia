@@ -277,7 +277,7 @@
     </style>
 </head>
 
-<body>
+<body onmouseup="window.analisarSelecao()" ontouchend="setTimeout(window.analisarSelecao, 500)">
 
     <div id="app">
 
@@ -880,52 +880,36 @@
             document.getElementById("btn-save").classList.remove("hidden");
         }
 
-        async function falarComIA(prompt) {
+        window.falarComIA = async function falarComIA(prompt) {
             const status = document.getElementById('ai-status');
             const conteudo = document.getElementById('side-conteudo');
 
-            status.style.display = 'block';
-            conteudo.innerText = 'Caçando nos livros...';
+            if (status) status.style.display = 'block';
+            if (conteudo) conteudo.innerText = 'Consultando...';
 
             try {
                 const res = await fetch('/api/ai', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, nome: nomeTeca, preferredModels: obterModelosParaUso() })
+                    body: JSON.stringify({
+                        prompt: `[SISTEMA_EXPLICACAO] ${prompt}`,
+                        nome: nomeTeca || '',
+                        preferredModels: typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : undefined
+                    })
                 });
 
-                const data = await res.json();
-
-                if (data.error) {
-                    if (data.meta && data.meta.model) bloquearModelo(data.meta.model);
-                    conteudo.innerText = 'A Teca tropeçou nos livros. Tente de novo.';
-                    console.error('Erro da API:', data.error);
-                    return;
-                }
-
-                if (data.result) {
-                    conteudo.innerText = data.result;
-
-                    const historico = JSON.parse(localStorage.getItem('teca_logs') || '[]');
-
-                    historico.push({
-                        nome: nomeTeca || 'anônimo',
-                        pergunta: prompt,
-                        resposta: data.result,
-                        data: new Date().toISOString()
-                    });
-
-                    localStorage.setItem('teca_logs', JSON.stringify(historico));
-                } else {
-                    conteudo.innerText = 'Não consegui processar essa explicação.';
+                const data = await res.json().catch(() => ({}));
+                if (conteudo) {
+                    conteudo.innerHTML = data && data.result
+                        ? `<div class="side-box">${String(data.result).replace(/\n/g, '<br>')}</div>`
+                        : 'A Teca ficou sem palavras por um instante. Tente de novo.';
                 }
             } catch (e) {
-                conteudo.innerText = 'A conexão com a biblioteca central falhou. Verifique sua estante (internet)!';
-                console.error(e);
+                if (conteudo) conteudo.innerText = 'A Teca ficou sem palavras por um instante. Tente de novo.';
             } finally {
-                status.style.display = 'none';
+                if (status) status.style.display = 'none';
             }
-        }
+        };
 
         // ---------------- Admin helpers (Supabase persistence, fallback local) ----------------
         function numbersKey() { return 'teca_numbers'; }
@@ -1397,88 +1381,31 @@
             // Atualizar renderizações periódicas
             window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
 
-            let ultimaSelecao = "";
-            let ultimaSelecaoEm = 0;
-            let selecaoEmAndamento = false;
+            let ultimaSelecao = '';
+            let ultimoHorario = 0;
 
-            function getSelectionContainer() {
-                const sel = window.getSelection ? window.getSelection() : null;
-                if (!sel || !sel.rangeCount) return null;
-                const range = sel.getRangeAt(0);
-                const node = range.commonAncestorContainer;
-                return node && node.nodeType === 1 ? node : node ? node.parentElement : null;
-            }
-
-            function isEditableSelectionTarget() {
-                const container = getSelectionContainer();
-                return !!(container && container.closest && container.closest('input, textarea, select, button, [contenteditable="true"]'));
-            }
-
-            window.analisarSelecao = async function analisarSelecao(event) {
-                try {
-                    if (isAdminMode()) return;
-                    if (selecaoEmAndamento) return;
-
-                    const sidebar = document.querySelector('.sidebar');
-                    if (!sidebar) return;
-                    const sidebarStyle = getComputedStyle(sidebar);
-                    if (sidebarStyle.display === 'none' || sidebarStyle.visibility === 'hidden') return;
-                    if (event && event.target && event.target.closest && event.target.closest('input, textarea, select, button')) return;
-
-                    const sel = window.getSelection ? window.getSelection().toString().trim() : '';
-                    if (sel.length < 2) return;
-                    if (isEditableSelectionTarget()) return;
-
-                    const agora = Date.now();
-                    if (sel === ultimaSelecao && (agora - ultimaSelecaoEm) < 1000) return;
-                    ultimaSelecao = sel;
-                    ultimaSelecaoEm = agora;
-                    selecaoEmAndamento = true;
-
-                    const side = document.getElementById('side-conteudo');
-                    if (sidebar && !document.body.classList.contains('admin-mode')) {
-                        document.body.classList.add('sidebar-visible');
-                    }
-                    if (side) side.innerText = 'Consultando...';
-
-                    const prompt = `[SISTEMA_EXPLICACAO] Explique de forma curta para adolescente de 11 a 13 anos: ${sel}`;
-                    const nomeSelecionado = typeof nomeTeca !== 'undefined' ? nomeTeca : (sessionStorage.getItem('nomeTeca') || 'Teca');
-                    const modelos = typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : [];
-                    const r = await fetch('/api/ai', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, nome: nomeSelecionado, preferredModels: modelos })
-                    });
-                    const data = await r.json().catch(() => ({}));
-
-                    if (side) {
-                        if (r.ok && data && data.result) {
-                            side.innerText = data.result.trim();
-                        } else {
-                            side.innerText = 'A Teca ficou sem palavras por um instante. Tente de novo em alguns segundos.';
-                        }
-                    }
-                } catch (e) {
-                    const side = document.getElementById('side-conteudo');
-                    if (side) side.innerText = 'A Teca ficou sem palavras por um instante. Tente de novo em alguns segundos.';
-                } finally {
-                    selecaoEmAndamento = false;
+            window.analisarSelecao = function analisarSelecao() {
+                if (isAdminMode()) return;
+                const sel = window.getSelection ? window.getSelection().toString().trim() : '';
+                if (sel.length < 2 || sel.length > 120) return;
+                const agora = Date.now();
+                if (sel === ultimaSelecao && (agora - ultimoHorario) < 1500) return;
+                ultimaSelecao = sel;
+                ultimoHorario = agora;
+                console.log('[Teca seleção]', sel);
+                if (typeof window.falarComIA === 'function') {
+                    window.falarComIA(`Explique de forma correta e simples: "${sel}"`);
                 }
             };
 
-            let __tecaSelecaoDebounce = null;
-            function analisarSelecaoDebounced(event) {
-                clearTimeout(__tecaSelecaoDebounce);
-                __tecaSelecaoDebounce = setTimeout(() => window.analisarSelecao(event), 180);
-            }
+            document.addEventListener('mouseup', () => {
+                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
+            });
+            document.addEventListener('dblclick', () => {
+                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
+            });
 
-            function initSelectionListeners() {
-                if (window.__tecaSelectionListenersBound) return;
-                window.__tecaSelectionListenersBound = true;
-                document.addEventListener('mouseup', analisarSelecaoDebounced);
-                document.addEventListener('dblclick', window.analisarSelecao);
-                document.addEventListener('touchend', analisarSelecaoDebounced);
-            }
+            function initSelectionListeners() { }
 
             async function salvar() {
                 const btn = document.getElementById('btn-save');
