@@ -19,6 +19,20 @@
             const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
             window.applyTheme(current === 'dark' ? 'light' : 'dark');
         };
+        window.initHomeButtons = window.initHomeButtons || function initHomeButtons() {
+            const btnIsis = document.getElementById('btn-isis');
+            const btnMaya = document.getElementById('btn-maya');
+            if (btnIsis && !btnIsis.dataset.bound) {
+                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
+                btnIsis.dataset.bound = '1';
+            }
+            if (btnMaya && !btnMaya.dataset.bound) {
+                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
+                btnMaya.dataset.bound = '1';
+            }
+        };
+        window.falarComIA = window.falarComIA || async function () { };
+        window.analisarSelecao = function () { };
     </script>
 
     <style>
@@ -276,7 +290,7 @@
     </style>
 </head>
 
-<body onmouseup="window.analisarSelecao()" ontouchend="setTimeout(window.analisarSelecao, 500)">
+<body>
 
     <div id="app">
 
@@ -608,6 +622,50 @@
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
             initHomeButtons();
+            document.addEventListener('mouseup', window.analisarSelecao);
+            document.addEventListener('dblclick', window.analisarSelecao);
+            document.addEventListener('touchend', () => setTimeout(window.analisarSelecao, 500));
+
+            const modalPassword = document.getElementById('modal-password');
+            if (modalPassword && !modalPassword.dataset.bound) {
+                modalPassword.dataset.bound = '1';
+                modalPassword.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        submitUserEntry();
+                    }
+                });
+            }
+
+            const respostaAtual = document.getElementById('respostaAtual');
+            if (respostaAtual && !respostaAtual.dataset.bound) {
+                respostaAtual.dataset.bound = '1';
+                respostaAtual.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        e.preventDefault();
+                        proximaPergunta();
+                    }
+                });
+            }
+
+            const actTitle = document.getElementById('act-title');
+            if (actTitle && !actTitle.dataset.bound) {
+                actTitle.dataset.bound = '1';
+                actTitle.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') e.preventDefault();
+                });
+            }
+
+            const actDesc = document.getElementById('act-desc');
+            if (actDesc && !actDesc.dataset.bound) {
+                actDesc.dataset.bound = '1';
+                actDesc.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        e.preventDefault();
+                        createActivity();
+                    }
+                });
+            }
         });
 
         let etapa = 0;
@@ -801,6 +859,16 @@
                 <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta cientista..."></textarea>
                 <button type="button" onclick="proximaPergunta()">Próxima</button>
             `;
+            const respostaAtual = document.getElementById('respostaAtual');
+            if (respostaAtual && !respostaAtual.dataset.bound) {
+                respostaAtual.dataset.bound = '1';
+                respostaAtual.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        e.preventDefault();
+                        proximaPergunta();
+                    }
+                });
+            }
         }
 
         function proximaPergunta() {
@@ -1256,7 +1324,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        prompt,
+                        prompt: `[SISTEMA_EXPLICACAO] ${prompt}`,
                         nome: nomeTeca || '',
                         preferredModels: typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : []
                     })
@@ -1290,20 +1358,6 @@
 
             window.falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: "${sel}"`);
         };
-
-        function initHomeButtons() {
-            const btnIsis = document.getElementById('btn-isis');
-            const btnMaya = document.getElementById('btn-maya');
-            if (btnIsis && !btnIsis.dataset.bound) {
-                btnIsis.dataset.bound = '1';
-                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
-            }
-            if (btnMaya && !btnMaya.dataset.bound) {
-                btnMaya.dataset.bound = '1';
-                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
-            }
-        }
-        window.initHomeButtons = initHomeButtons;
 
         async function loadPublicActivityIfAny() {
                 const aid = getQueryParam('atividade');
@@ -1441,30 +1495,6 @@
 
             // Atualizar renderizações periódicas
             window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
-
-            let ultimaSelecao = '';
-            let ultimoHorario = 0;
-
-            window.analisarSelecao = function analisarSelecao() {
-                if (isAdminMode()) return;
-                const sel = window.getSelection ? window.getSelection().toString().trim() : '';
-                if (sel.length < 2 || sel.length > 120) return;
-                const agora = Date.now();
-                if (sel === ultimaSelecao && (agora - ultimoHorario) < 1500) return;
-                ultimaSelecao = sel;
-                ultimoHorario = agora;
-                console.log('[Teca seleção]', sel);
-                if (typeof window.falarComIA === 'function') {
-                    window.falarComIA(`Explique de forma correta e simples: "${sel}"`);
-                }
-            };
-
-            document.addEventListener('mouseup', () => {
-                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
-            });
-            document.addEventListener('dblclick', () => {
-                if (typeof window.analisarSelecao === 'function') window.analisarSelecao();
-            });
 
             async function salvar() {
                 const btn = document.getElementById('btn-save');
