@@ -422,7 +422,8 @@
     <script>
         const supabaseUrl = 'https://jjpmqxcymsrglwenklfo.supabase.co';
         const supabaseKey = 'sb_publishable_aiCmRwdcB4BM-wQAj_2kpg_Wl0nMaOq';
-        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        const _supabase = window.supabase ? supabase.createClient(supabaseUrl, supabaseKey) : null;
+        window._supabase = _supabase;
 
         function isAdminMode() {
             try { return new URLSearchParams(window.location.search).get('mode') === 'admin'; } catch (e) { return false; }
