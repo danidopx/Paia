@@ -47,13 +47,12 @@
             box-sizing: border-box;
         }
 
-        /* Mostrar sidebar apenas quando estiver dentro de modo não-admin ou quando estiver na tela-lab/intro */
-        body:not(.admin-mode) .sidebar {
-            display: none !important;
+        body.sidebar-visible:not(.admin-mode) .sidebar {
+            display: flex !important;
         }
 
         .admin-mode .sidebar {
-            display: flex !important;
+            display: none !important;
         }
 
         /* quando em modo admin, ocultar elementos não relevantes */
@@ -556,6 +555,7 @@
         function irPara(id) {
             document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
+            document.body.classList.toggle('sidebar-visible', !isAdminMode() && (id === 'tela-intro' || id === 'tela-lab'));
         }
 
         // --- Gerenciamento Inteligente de Modelos ---
