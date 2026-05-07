@@ -1,0 +1,122 @@
+const MIN_SELECTION = 2;
+const MAX_SELECTION = 120;
+const DEDUPE_MS = 1200;
+
+function isInteractiveTarget(target) {
+  return Boolean(target && target.closest && target.closest('input, textarea, select, button'));
+}
+
+function isValidSelection(text) {
+  return text.length >= MIN_SELECTION && text.length <= MAX_SELECTION;
+}
+
+export function createTecaAssistant({ getUserName, isAdminMode, getPreferredModels }) {
+  let lastSelection = '';
+  let lastAt = 0;
+  let listenersBound = false;
+
+  function setSidebarMessage(message) {
+    const status = document.getElementById('ai-status');
+    const side = document.getElementById('side-conteudo');
+    if (status) {
+      status.textContent = message.includes('Consultando') ? 'Consultando...' : 'Pronta para ajudar';
+    }
+    if (side) {
+      side.textContent = message;
+    }
+  }
+
+  async function falarComIA(prompt) {
+    const status = document.getElementById('ai-status');
+    const side = document.getElementById('side-conteudo');
+    if (!side) {
+      return;
+    }
+
+    if (status) {
+      status.textContent = 'Consultando...';
+    }
+    side.textContent = 'Consultando...';
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          nome: getUserName?.() || '',
+          preferredModels: typeof getPreferredModels === 'function' ? getPreferredModels() : [],
+        }),
+      });
+
+      const data = await response.json();
+      side.textContent = data?.result || 'A Teca não achou uma explicação agora. Tente outra palavra.';
+    } catch (error) {
+      side.textContent = 'A Teca tropeçou nos livros. Tente de novo em instantes.';
+    } finally {
+      if (status) {
+        status.textContent = 'Pronta para ajudar';
+      }
+    }
+  }
+
+  function analisarSelecao(event) {
+    if (typeof isAdminMode === 'function' && isAdminMode()) {
+      return;
+    }
+
+    if (document.body?.dataset?.screen !== 'lab') {
+      return;
+    }
+
+    if (event && isInteractiveTarget(event.target)) {
+      return;
+    }
+
+    const selection = window.getSelection()?.toString().trim() || '';
+    if (!isValidSelection(selection)) {
+      return;
+    }
+
+    const now = Date.now();
+    if (selection === lastSelection && now - lastAt < DEDUPE_MS) {
+      return;
+    }
+
+    lastSelection = selection;
+    lastAt = now;
+
+    falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: ${selection}`);
+  }
+
+  function explainSelectionManually() {
+    analisarSelecao();
+  }
+
+  function initSelectionListeners() {
+    if (listenersBound) {
+      return;
+    }
+    listenersBound = true;
+    document.addEventListener('mouseup', analisarSelecao);
+    document.addEventListener('dblclick', analisarSelecao);
+    document.addEventListener('touchend', () => {
+      setTimeout(analisarSelecao, 500);
+    });
+  }
+
+  function showSidebarIntro() {
+    setSidebarMessage('Selecione uma palavra ou frase e eu explico.');
+  }
+
+  return {
+    falarComIA,
+    analisarSelecao,
+    explainSelectionManually,
+    initSelectionListeners,
+    setSidebarMessage,
+    showSidebarIntro,
+  };
+}

@@ -1,1637 +1,364 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protocolo Científico v2.0</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        window.getSavedTheme = window.getSavedTheme || function () {
-            try { return localStorage.getItem('teca_theme') || 'light'; } catch (e) { return 'light'; }
-        };
-        window.applyTheme = window.applyTheme || function (theme) {
-            document.body.classList.remove('theme-light', 'theme-dark');
-            document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
-            try { localStorage.setItem('teca_theme', theme); } catch (e) { }
-        };
-        window.toggleTheme = window.toggleTheme || function () {
-            const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-            window.applyTheme(current === 'dark' ? 'light' : 'dark');
-        };
-        window.initHomeButtons = window.initHomeButtons || function initHomeButtons() {
-            const btnIsis = document.getElementById('btn-isis');
-            const btnMaya = document.getElementById('btn-maya');
-            if (btnIsis && !btnIsis.dataset.bound) {
-                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
-                btnIsis.dataset.bound = '1';
-            }
-            if (btnMaya && !btnMaya.dataset.bound) {
-                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
-                btnMaya.dataset.bound = '1';
-            }
-        };
-        window.falarComIA = window.falarComIA || async function () { };
-    </script>
-
-    <style>
-        :root {
-            --primary: #4c8cff;
-            --bg: #f5f7fb;
-            --card: #ffffff;
-            --text: #1e293b;
-            --muted: #6b7280;
-            --border: #d1d5db;
-            --surface: #eef4ff;
-            --accent: #7c3aed;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        #app {
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .sidebar {
-            width: 350px;
-            background: var(--sidebar-bg);
-            border-left: 1px solid #30363d;
-            padding: 25px;
-            display: none;
-            flex-direction: column;
-            box-sizing: border-box;
-        }
-
-        body.sidebar-visible:not(.admin-mode) .sidebar {
-            display: flex !important;
-        }
-
-        .admin-mode .sidebar {
-            display: none !important;
-        }
-
-        /* quando em modo admin, ocultar elementos não relevantes */
-        .admin-mode #user-banner {
-            display: none !important;
-        }
-
-        .admin-mode #tela-chamada {
-            display: none !important;
-        }
-
-        .container {
-            max-width: 650px;
-            width: 100%;
-            background: var(--card);
-            padding: 30px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            box-sizing: border-box;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-        }
-
-        .theme-toggle {
-            background: rgba(76, 140, 255, 0.12);
-            color: var(--primary);
-            border: 1px solid rgba(76, 140, 255, 0.25);
-            border-radius: 999px;
-            padding: 8px 14px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .admin-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 18px;
-        }
-
-        .admin-tabs button {
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text);
-            padding: 10px 16px;
-            border-radius: 999px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .admin-tabs button.active {
-            background: var(--primary);
-            color: white;
-            border-color: transparent;
-        }
-
-        .admin-row {
-            font-size: 13px;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 14px;
-            margin-bottom: 12px;
-            background: var(--surface);
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        #user-banner:not(.hidden) {
-            display: flex !important;
-        }
-
-        .step-label {
-            color: var(--primary);
-            font-weight: bold;
-            display: block;
-            margin-top: 20px;
-        }
-
-        textarea,
-        .teca-input,
-        select {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 12px;
-            margin-top: 8px;
-            border-radius: 12px;
-            background: #f8fafc;
-            color: var(--text);
-            border: 1px solid var(--border);
-            resize: none;
-        }
-
-        .teca-input {
-            margin-bottom: 12px;
-        }
-
-        button {
-            background: var(--primary);
-            color: #ffffff;
-            border: none;
-            padding: 14px 16px;
-            border-radius: 14px;
-            cursor: pointer;
-            min-width: 120px;
-            font-weight: 700;
-            margin-top: 16px;
-        }
-
-        button:hover {
-            opacity: 0.95;
-        }
-
-        .btn-isis {
-            background: #dfe9d6;
-            color: #2f4a2e;
-            border: 1px solid #b9c9ae;
-        }
-
-        .btn-maya {
-            background: #f3e4a6;
-            color: #6a4f1d;
-            border: 1px solid #d8c37a;
-        }
-
-        .theme-light {
-            --bg: #f5f7fb;
-            --card: #ffffff;
-            --text: #1e293b;
-            --muted: #6b7280;
-            --border: #d1d5db;
-            --surface: #eef4ff;
-            --accent: #7c3aed;
-        }
-
-        .theme-dark {
-            --bg: #0d1117;
-            --card: #161b22;
-            --text: #c9d1d9;
-            --muted: #8b949e;
-            --border: #30363d;
-            --surface: #21262d;
-            --accent: #00d4ff;
-        }
-
-        #ai-status {
-            font-size: 12px;
-            color: var(--primary);
-            margin-bottom: 10px;
-            display: none;
-        }
-
-        .explanation-text {
-            font-size: 14px;
-            line-height: 1.5;
-            color: #8b949e;
-        }
-
-        .admin-row {
-            font-size: 12px;
-            border-bottom: 1px solid #30363d;
-            padding: 10px 0;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-                height: auto;
-                min-height: 100vh;
-            }
-
-            #app {
-                padding: 15px;
-                overflow-y: visible;
-            }
-
-            .container {
-                padding: 20px;
-            }
-
-            .sidebar {
-                width: 100%;
-                border-left: none;
-                border-top: 1px solid #30363d;
-                order: -1;
-            }
-        }
-
-        @keyframes bounce {
-
-            0%,
-            20%,
-            50%,
-            80%,
-            100% {
-                transform: translateY(0);
-            }
-
-            40% {
-                transform: translateY(-15px);
-            }
-
-            60% {
-                transform: translateY(-7px);
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paia | Professora Teca</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --panel: #ffffff;
+      --panel-soft: #f8f9fc;
+      --text: #1f2a37;
+      --muted: #667085;
+      --line: #d7deea;
+      --accent: #4f7cff;
+      --accent-2: #f2c94c;
+      --success: #e7f3e6;
+      --shadow: 0 18px 50px rgba(31, 42, 55, 0.08);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(79, 124, 255, 0.08), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(242, 201, 76, 0.11), transparent 26%),
+        var(--bg);
+      color: var(--text);
+    }
+    button, textarea {
+      font: inherit;
+    }
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(1120px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #fbfcff);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #dce8ff, #f7f0c4);
+      font-size: 22px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+    .brand p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .topbar a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .screen {
+      display: none;
+    }
+    .screen.is-active {
+      display: block;
+    }
+    .home {
+      padding: 40px 22px 44px;
+      text-align: center;
+    }
+    .home h2 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.05;
+    }
+    .home p {
+      margin: 14px auto 28px;
+      max-width: 640px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .choice-row {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .choice-btn, .theme-btn, .primary-btn, .ghost-btn {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .choice-btn:hover, .theme-btn:hover, .primary-btn:hover, .ghost-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(31, 42, 55, 0.08);
+    }
+    .choice-btn {
+      min-width: 160px;
+      padding: 18px 24px;
+      font-weight: 700;
+      font-size: 18px;
+      background: var(--panel-soft);
+    }
+    .choice-btn.isis {
+      background: linear-gradient(180deg, #edf5e7, #e3f0d9);
+    }
+    .choice-btn.maya {
+      background: linear-gradient(180deg, #f9ecb7, #f4de85);
+    }
+    .lab {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+    .lab-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(31, 42, 55, 0.04);
+    }
+    .panel-pad {
+      padding: 18px;
+    }
+    .chips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .theme-btn {
+      padding: 12px 16px;
+      background: #fff;
+      font-weight: 600;
+    }
+    .theme-btn.is-active {
+      border-color: rgba(79, 124, 255, 0.4);
+      background: rgba(79, 124, 255, 0.08);
+      color: var(--accent);
+    }
+    .question-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+    .question-head h3 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .question-box {
+      min-height: 140px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: #fbfcff;
+      margin-bottom: 14px;
+    }
+    .question-box strong {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .question-box p {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.45;
+    }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    textarea:focus {
+      border-color: rgba(79, 124, 255, 0.45);
+      box-shadow: 0 0 0 4px rgba(79, 124, 255, 0.08);
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .primary-btn, .ghost-btn {
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .primary-btn {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .ghost-btn {
+      background: #fff;
+    }
+    .sidebar {
+      position: sticky;
+      top: 18px;
+    }
+    .sidebar h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(79, 124, 255, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      min-height: 28px;
+    }
+    .side-content {
+      min-height: 240px;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      white-space: pre-wrap;
+      line-height: 1.5;
+      font-size: 15px;
+    }
+    .sidebar .ghost-btn {
+      width: 100%;
+      margin-top: 12px;
+    }
+    .complete {
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--success);
+      border: 1px solid #cfe7cd;
+      color: #285b2b;
+      line-height: 1.5;
+    }
+    .hidden {
+      display: none !important;
+    }
+    @media (max-width: 960px) {
+      .lab-grid {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="shell">
+    <div class="card">
+      <div class="topbar">
+        <div class="brand">
+          <div class="avatar">🧪</div>
+          <div>
+            <h1>Professora Teca</h1>
+            <p>Paia MVP</p>
+          </div>
+        </div>
+        <a href="/admin.html">Admin</a>
+      </div>
 
-    <div id="app">
+      <section id="home-screen" class="screen home is-active">
+        <h2>Quem está entrando no laboratório?</h2>
+        <p>Escolha um nome para entrar. A partir daí a Teca prepara perguntas, acompanha as respostas e explica palavras ou frases selecionadas.</p>
+        <div class="choice-row">
+          <button id="btn-isis" class="choice-btn isis" type="button">Isis</button>
+          <button id="btn-maya" class="choice-btn maya" type="button">Maya</button>
+        </div>
+      </section>
 
-        <div id="user-banner" class="container hidden"
-            style="max-width:650px; margin-bottom:16px; justify-content:space-between; align-items:center;">
-            <div style="font-size:14px;color:#8b949e;">Logado: <strong id="banner-name"></strong></div>
-            <button style="width:120px;" onclick="logoutUser()">Sair</button>
+      <section id="lab-screen" class="screen lab">
+        <div class="panel panel-pad">
+          <div class="question-head">
+            <div>
+              <h3 id="user-label">Laboratório</h3>
+              <div id="theme-label" class="muted">Escolha um tema para iniciar o protocolo.</div>
+            </div>
+            <div class="muted" id="progress-label">0/4 perguntas</div>
+          </div>
+          <div class="chips" id="theme-list"></div>
         </div>
 
-        <!-- Tela pública de atividade (acessível via ?atividade=id) -->
-        <div id="tela-atividade" class="container hidden" style="max-width:700px;">
-            <h2 id="atividade-title">Atividade</h2>
-            <div id="atividade-desc" class="explanation-text" style="margin-bottom:12px;"></div>
-
-            <div id="atividade-attachments" style="margin-bottom:8px;"></div>
-
-            <div style="margin-top:8px;">
-                <label>Resposta (texto)</label>
-                <textarea id="resp-text" rows="5" class="teca-input" placeholder="Escreva sua resposta..."></textarea>
-                <label>Anexo / foto (opcional)</label>
-                <input id="resp-file" type="file" accept="image/*" style="margin-top:6px;">
-                <button onclick="submitActivityResponse()">Enviar resposta</button>
+        <div class="lab-grid">
+          <section class="panel panel-pad">
+            <div id="question-state">
+              <div class="question-box">
+                <strong>Pergunta</strong>
+                <p id="question-text">Selecione um tema para a Professora Teca gerar as perguntas.</p>
+              </div>
+              <label class="muted" for="answer-box">Sua resposta</label>
+              <textarea id="answer-box" placeholder="Escreva sua resposta aqui..."></textarea>
+              <div class="actions">
+                <button id="next-btn" class="primary-btn" type="button">Próxima</button>
+                <button id="restart-btn" class="ghost-btn" type="button">Trocar tema</button>
+              </div>
             </div>
+            <div id="complete-state" class="complete hidden"></div>
+          </section>
 
-            <div id="atividade-feedback" style="margin-top:12px;"></div>
+          <aside id="teca-sidebar" class="panel panel-pad sidebar">
+            <h3>Professora Teca</h3>
+            <div id="ai-status" class="status" aria-live="polite">Pronta para ajudar</div>
+            <div id="side-conteudo" class="side-content">Selecione uma palavra ou frase e eu explico.</div>
+            <button id="explain-btn" class="ghost-btn" type="button">Explicar seleção</button>
+          </aside>
         </div>
-
-        <div id="tela-chamada" class="container" style="text-align: center;">
-            <div style="font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite;">👩‍🏫</div>
-            <h2 style="color: var(--primary);">Chamada do Laboratório!</h2>
-            <p style="color: #8b949e; margin-bottom: 25px;">A professora Teca quer saber quem está participando da
-                investigação de hoje.</p>
-
-            <div style="display:flex; gap:12px; justify-content:center; margin-top: 12px;">
-                <button id="btn-isis" type="button" class="btn-isis" style="flex:0 0 140px;" onclick="openUserEntry('Isis')">Isis</button>
-                <button id="btn-maya" type="button" class="btn-maya" style="flex:0 0 140px;" onclick="openUserEntry('Maya')">Maya</button>
-            </div>
-
-            <div style="margin-top:18px; color:#8b949e; font-size:13px;">Selecione Isis ou Maya para entrar.</div>
-        </div>
-
-        <!-- Modal de entrada do usuário -->
-        <div id="user-entry-modal" class="container hidden"
-            style="max-width:480px; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9999;">
-            <h3 id="modal-title">Entrar</h3>
-            <p style="color:#8b949e;">Para prosseguir como <strong id="selected-user">usuário</strong>, informe a senha.
-            </p>
-            <input id="modal-password" class="teca-input" type="password" placeholder="Senha segura">
-            <div style="display:flex; gap:8px;">
-                <button onclick="submitUserEntry()">Entrar</button>
-                <button onclick="closeUserModal()" style="background:#333; color:#c9d1d9;">Cancelar</button>
-            </div>
-        </div>
-
-        <div id="tela-intro" class="container hidden">
-            <h1>Laboratório de Investigação da Professora Teca</h1>
-
-            <p>
-                Atenção, pesquisadora! Você acaba de entrar no meu Laboratório de Curiosidades. ✨
-                Aqui, não aceitamos “eu acho” sem provas! Vamos usar o Método Científico:
-                observar, perguntar, pensar, testar e concluir.
-            </p>
-
-            <p>
-                Ao lado, o <strong>Espaço de Sabedoria</strong> explicará termos complexos.
-                Basta selecionar qualquer palavra ou frase.
-            </p>
-
-            <button onclick="irPara('tela-lab')">Iniciar Protocolo</button>
-        </div>
-
-        <div id="tela-lab" class="container hidden">
-
-            <select id="tema" onchange="iniciarFluxo()">
-                <option value="">Escolha um tema</option>
-                <option value="psicologia">Psicologia (Autoanálise)</option>
-                <option value="astronomia">Astronomia</option>
-                <option value="biologia">Biologia</option>
-                <option value="matematica">Matemática</option>
-                <option value="politica">Política</option>
-                <option value="brasil">Conhecimentos do Brasil</option>
-                <option value="fisica">Física</option>
-            </select>
-
-            <div id="fluxo"></div>
-
-            <button id="btn-save" class="hidden" onclick="salvar()">Finalizar Relatório</button>
-
-        </div>
-
-        <div id="tela-admin" class="container hidden" style="max-width: 980px;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-                <div>
-                    <h2>Painel da Professora Teca</h2>
-                    <div style="color: var(--muted); font-size:14px; margin-top:4px;">Gerencie atividades, envios e
-                        avaliações.</div>
-                </div>
-                <button class="theme-toggle" onclick="toggleTheme()">Alternar tema</button>
-            </div>
-
-            <div class="admin-tabs">
-                <button data-tab="activities" class="active" onclick="showAdminTab('activities')">Atividades</button>
-                <button data-tab="tasks" onclick="showAdminTab('tasks')">Tarefas / Acompanhamento</button>
-                <button data-tab="settings" onclick="showAdminTab('settings')">Configurações</button>
-            </div>
-
-            <div id="admin-tab-activities" class="admin-tab-pane">
-                <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:280px;">
-                        <h4>Criar atividade</h4>
-                        <input id="act-title" class="teca-input" placeholder="Título da atividade">
-                        <textarea id="act-desc" rows="4" class="teca-input"
-                            placeholder="Descrição / instruções"></textarea>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
-                            <button onclick="improveActivityDescription()" style="flex:0 0 auto;">Melhorar com
-                                IA</button>
-                            <span id="description-ai-status" style="font-size:13px;color:var(--muted);"></span>
-                        </div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <input id="act-theme" class="teca-input" placeholder="Tema (ex: biologia)"
-                                style="flex:1; min-width:160px;">
-                            <input id="act-expected" class="teca-input" placeholder="Respostas esperadas (n)"
-                                style="width:160px; min-width:140px;">
-                        </div>
-                        <label style="font-size:13px;color:var(--muted);margin-top:6px;display:block;">Anexo opcional
-                            para a atividade (imagem).</label>
-                        <input id="act-attachment" type="file" style="margin-top:8px;">
-                        <button onclick="createActivity()">Criar atividade</button>
-                    </div>
-
-                    <div style="flex:1.4; min-width:320px;">
-                        <h4>Atividades cadastradas</h4>
-                        <div id="activities-list"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="admin-tab-tasks" class="admin-tab-pane hidden">
-                <h4>Tarefas e acompanhamento</h4>
-                <div id="admin-tasks-container"></div>
-            </div>
-
-            <div id="admin-tab-settings" class="admin-tab-pane hidden">
-                <div id="admin-content"></div>
-            </div>
-
-            <div style="margin-top:18px; text-align:right;"><button onclick="location.href='index.html'">Sair do
-                    Admin</button></div>
-        </div>
-
+      </section>
     </div>
+  </div>
 
-    <div class="sidebar">
-        <h3 style="color: var(--primary);">Professora Teca</h3>
-
-        <div id="ai-status">⚙️ Teca está folheando os livros...</div>
-
-        <div id="side-conteudo" class="explanation-text">
-            Selecione uma palavra ou frase e eu explico.
-        </div>
-    </div>
-
-    <script>
-        const supabaseUrl = 'https://jjpmqxcymsrglwenklfo.supabase.co';
-        const supabaseKey = 'sb_publishable_aiCmRwdcB4BM-wQAj_2kpg_Wl0nMaOq';
-        const _supabase = window.supabase ? supabase.createClient(supabaseUrl, supabaseKey) : null;
-        window._supabase = _supabase;
-
-        function isAdminMode() {
-            try { return new URLSearchParams(window.location.search).get('mode') === 'admin'; } catch (e) { return false; }
-        }
-
-        let nomeTeca = sessionStorage.getItem('nomeTeca') || '';
-        const inputNomeTeca = document.getElementById('nome-teca');
-        if (inputNomeTeca) inputNomeTeca.value = nomeTeca;
-
-        // --- Admin / Auth local storage keys ---
-        const ADMIN_PASSWORD_KEY = 'teca_admin_password';
-        const DEFAULT_ADMIN_PASSWORD = 'dopj1982';
-        const USER_PASSWORDS_KEY = 'teca_user_passwords';
-
-        function getAdminPassword() {
-            return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
-        }
-
-        function saveAdminPassword(newPass) {
-            if (!newPass || newPass.length < 4) {
-                alert('Senha muito curta. Use ao menos 4 caracteres.');
-                return;
-            }
-            localStorage.setItem(ADMIN_PASSWORD_KEY, newPass);
-            alert('Senha do admin atualizada.');
-            carregarAdmin();
-        }
-
-        function getUserPasswords() {
-            try { return JSON.parse(localStorage.getItem(USER_PASSWORDS_KEY) || '{}'); }
-            catch (e) { return {}; }
-        }
-
-        function saveUserPassword(user, pass) {
-            if (!user) return;
-            const map = getUserPasswords();
-            map[user] = pass;
-            localStorage.setItem(USER_PASSWORDS_KEY, JSON.stringify(map));
-            carregarAdmin();
-            alert(`Senha de ${user} atualizada.`);
-        }
-
-        // --- Modal usuário ---
-        let _pendingUser = '';
-        window.openUserEntry = function(name) {
-            const users = getUserPasswords();
-            if (!users[name]) {
-                nomeTeca = name;
-                sessionStorage.setItem('nomeTeca', nomeTeca);
-                showUserBanner(nomeTeca);
-                irPara('tela-intro');
-                return;
-            }
-            _pendingUser = name;
-            document.getElementById('selected-user').innerText = name;
-            document.getElementById('modal-password').value = '';
-            document.getElementById('user-entry-modal').classList.remove('hidden');
-        };
-
-        window.closeUserModal = function() {
-            document.getElementById('user-entry-modal').classList.add('hidden');
-            _pendingUser = '';
-        };
-
-        window.submitUserEntry = function() {
-            const pass = document.getElementById('modal-password').value || '';
-
-            if (!_pendingUser) return alert('Usuário não selecionado.');
-
-            const users = getUserPasswords();
-            const expected = users[_pendingUser];
-
-            if (!expected) {
-                alert('Senha para este usuário não foi definida pelo admin.');
-                return;
-            }
-
-            if (pass !== expected) {
-                alert('Senha incorreta para ' + _pendingUser + '.');
-                return;
-            }
-            // Registrar seleção na sessão (apenas nome)
-            nomeTeca = _pendingUser;
-            sessionStorage.setItem('nomeTeca', nomeTeca);
-            showUserBanner(nomeTeca);
-            window.closeUserModal();
-            irPara('tela-intro');
-        };
-
-        function showUserBanner(name) {
-            const banner = document.getElementById('user-banner');
-            if (!banner) return;
-            document.getElementById('banner-name').innerText = name || '';
-            banner.classList.remove('hidden');
-        }
-
-        function hideUserBanner() {
-            const banner = document.getElementById('user-banner');
-            if (!banner) return; banner.classList.add('hidden');
-        }
-
-        function logoutUser() {
-            sessionStorage.removeItem('nomeTeca');
-            nomeTeca = '';
-            hideUserBanner();
-            location.reload();
-        }
-
-        function irPara(id) {
-            document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-            document.body.classList.toggle('sidebar-visible', !isAdminMode() && (id === 'tela-intro' || id === 'tela-lab'));
-        }
-
-        // --- Gerenciamento Inteligente de Modelos ---
-        const MODEL_CACHE_KEY = 'teca_modelos_disponiveis';
-        const MODEL_UPDATED_KEY = 'teca_modelos_atualizado_em';
-        const MODEL_BLOCK_KEY = 'teca_modelos_bloqueados';
-        const CACHE_VALIDITY = 43200000; // 12 horas
-        const BLOCK_DURATION = 600000;  // 10 minutos
-
-        async function carregarModelos() {
-            const agora = Date.now();
-            const atualizadoEm = localStorage.getItem(MODEL_UPDATED_KEY);
-            if (atualizadoEm && (agora - parseInt(atualizadoEm)) < CACHE_VALIDITY) return;
-            try {
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'listModels' })
-                });
-                const data = await res.json();
-                if (data.providers) {
-                    localStorage.setItem(MODEL_CACHE_KEY, JSON.stringify(data.providers));
-                    localStorage.setItem(MODEL_UPDATED_KEY, agora.toString());
-                }
-            } catch (e) { console.error("Erro ao listar modelos:", e); }
-        }
-
-        function obterModelosParaUso() {
-            const agora = Date.now();
-            const cache = JSON.parse(localStorage.getItem(MODEL_CACHE_KEY) || '{"gemini": ["gemini-2.0-flash"], "openai": ["gpt-4o-mini"]}');
-            const bloqueados = JSON.parse(localStorage.getItem(MODEL_BLOCK_KEY) || '{}');
-            for (const m in bloqueados) { if (agora > bloqueados[m]) delete bloqueados[m]; }
-            localStorage.setItem(MODEL_BLOCK_KEY, JSON.stringify(bloqueados));
-            const list = [];
-            (cache.gemini || []).forEach(m => list.push(`gemini:${m}`));
-            (cache.openai || []).forEach(m => list.push(`openai:${m}`));
-            return list.filter(m => !bloqueados[m]);
-        }
-
-        function bloquearModelo(modelInfo) {
-            if (!modelInfo) return;
-            const bloqueados = JSON.parse(localStorage.getItem(MODEL_BLOCK_KEY) || '{}');
-            bloqueados[modelInfo] = Date.now() + BLOCK_DURATION;
-            localStorage.setItem(MODEL_BLOCK_KEY, JSON.stringify(bloqueados));
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            window.applyTheme(window.getSavedTheme());
-            carregarModelos();
-            const name = sessionStorage.getItem('nomeTeca');
-            if (name) showUserBanner(name);
-            initHomeButtons();
-            initSelectionListeners();
-
-            const modalPassword = document.getElementById('modal-password');
-            if (modalPassword && !modalPassword.dataset.bound) {
-                modalPassword.dataset.bound = '1';
-                modalPassword.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        submitUserEntry();
-                    }
-                });
-            }
-
-            const respostaAtual = document.getElementById('respostaAtual');
-            if (respostaAtual && !respostaAtual.dataset.bound) {
-                respostaAtual.dataset.bound = '1';
-                respostaAtual.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) {
-                        e.preventDefault();
-                        proximaPergunta();
-                    }
-                });
-            }
-
-            const actTitle = document.getElementById('act-title');
-            if (actTitle && !actTitle.dataset.bound) {
-                actTitle.dataset.bound = '1';
-                actTitle.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') e.preventDefault();
-                });
-            }
-
-            const actDesc = document.getElementById('act-desc');
-            if (actDesc && !actDesc.dataset.bound) {
-                actDesc.dataset.bound = '1';
-                actDesc.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) {
-                        e.preventDefault();
-                        createActivity();
-                    }
-                });
-            }
-        });
-
-        let etapa = 0;
-        let respostas = [];
-        let temaAtual = "";
-        let perguntasDinamicas = [];
-        let carregandoPerguntas = false;
-
-        // --- Pool de perguntas por tema (localStorage) ---
-        function poolKey(tema) { return `perguntas_pool_${tema}`; }
-        function getPerguntasPool(tema) {
-            try { return JSON.parse(localStorage.getItem(poolKey(tema)) || '[]'); } catch (e) { return []; }
-        }
-        function savePerguntasPool(tema, pool) {
-            try {
-                // limitar a 30
-                const trimmed = (pool || []).slice(0, 30);
-                localStorage.setItem(poolKey(tema), JSON.stringify(trimmed));
-            } catch (e) { console.error('Erro salvar pool', e); }
-        }
-
-        // --- Deduplicação robusta ---
-        function normalizeText(t) {
-            if (!t) return '';
-            // remover acentos, lower, remover pontuação, colapsar espaços
-            try {
-                t = t.normalize('NFD').replace(/\p{Diacritic}/gu, '');
-            } catch (e) { /* fallback se normalize não suportar */ }
-            return t.toString().trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
-        }
-
-        function levenshtein(a, b) {
-            a = a || ''; b = b || '';
-            const al = a.length, bl = b.length;
-            if (al === 0) return bl;
-            if (bl === 0) return al;
-            const dp = Array.from({ length: al + 1 }, () => new Array(bl + 1));
-            for (let i = 0; i <= al; i++) dp[i][0] = i;
-            for (let j = 0; j <= bl; j++) dp[0][j] = j;
-            for (let i = 1; i <= al; i++) {
-                for (let j = 1; j <= bl; j++) {
-                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-                    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-                }
-            }
-            return dp[al][bl];
-        }
-
-        function isDuplicateInPool(pool, text) {
-            const n = normalizeText(text);
-            if (!n) return true;
-            for (const p of pool) {
-                const other = normalizeText(p.pergunta || p);
-                if (!other) continue;
-                if (n === other) return true;
-                const maxLen = Math.max(n.length, other.length);
-                if (maxLen === 0) continue;
-                const dist = levenshtein(n, other);
-                const similarity = 1 - (dist / maxLen);
-                if (similarity >= 0.85) return true; // 85% similar considered duplicate
-            }
-            return false;
-        }
-
-        async function fetchPerguntasFromAI(tema, count = 4) {
-            try {
-                const res = await fetch('/api/ai', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: `[SISTEMA_PERGUNTAS] Tema: ${tema}`, nome: nomeTeca, preferredModels: obterModelosParaUso() })
-                });
-                const data = await res.json();
-                if (data.result) {
-                    let jsonStr = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
-                    let parsed = JSON.parse(jsonStr);
-                    if (Array.isArray(parsed)) {
-                        return parsed.map(p => ({ pergunta: p, source: 'ai', used: false, createdAt: Date.now() }));
-                    }
-                }
-            } catch (e) { console.warn('fetchPerguntasFromAI failed', e); }
-            return [];
-        }
-
-        function markPerguntaUsedInPool(tema, perguntaText) {
-            const pool = getPerguntasPool(tema);
-            const idx = pool.findIndex(p => !p.used && p.pergunta === perguntaText);
-            if (idx >= 0) { pool[idx].used = true; savePerguntasPool(tema, pool); }
-        }
-
-        // Retorna perguntas não usadas do pool (somente leitura). O preenchimento via IA é feito diretamente no fluxo.
-        async function selectQuestionsFromPool(temaId, want = 4) {
-            const pool = getPerguntasPool(temaId) || [];
-            const unused = pool.filter(p => !p.used);
-            return unused.slice(0, want);
-        }
-
-        async function iniciarFluxo(tentativa = 1) {
-            if (carregandoPerguntas) return;
-
-            temaAtual = document.getElementById("tema").value;
-            etapa = 0;
-            respostas = [];
-            perguntasDinamicas = [];
-
-            document.getElementById("btn-save").classList.add("hidden");
-
-            if (!temaAtual) {
-                document.getElementById("fluxo").innerHTML = "";
-                return;
-            }
-
-            // 1. Tentar sempre obter perguntas novas da IA primeiro; se falhar, usar pool como fallback
-            const cooldownKey = `teca_retry_bloqueado_${temaAtual}`;
-            const bloqueio = localStorage.getItem(cooldownKey);
-            if (bloqueio && Date.now() < parseInt(bloqueio)) {
-                document.getElementById("fluxo").innerHTML = `
-                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                        <p>A estante da Teca está muito disputada agora. Ela deixou os cartões pausados por alguns minutos 📚</p>
-                        <p style="font-size: 12px; color: #8b949e;">Espere alguns minutos para vascular os arquivos novamente.</p>
-                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo daqui a pouco</button>
-                    </div>
-                `;
-                return;
-            }
-
-            carregandoPerguntas = true;
-            document.getElementById("fluxo").innerHTML = `
-                <div style="text-align:center; padding:20px;">
-                    <div class="spinner" style="margin-bottom:15px;">⏳</div>
-                    <p>A Teca está separando os cartões da próxima investigação... 📚 (Ajuste ${tentativa}/2)</p>
-                </div>
-            `;
-
-            try {
-                const sel = document.getElementById('tema');
-                const displayText = sel.options[sel.selectedIndex].text;
-
-                // Tenta obter novas perguntas via IA
-                let novas = [];
-                try {
-                    novas = await fetchPerguntasFromAI(displayText, 4);
-                } catch (e) {
-                    console.warn('Falha ao obter perguntas da IA:', e);
-                }
-
-                if (novas && novas.length) {
-                    // Usar perguntas novas SEM salvar no pool (pool é reserva apenas em falhas)
-                    perguntasDinamicas = novas.slice(0, 4);
-                    mostrarPergunta();
-                    return;
-                }
-
-                // Se IA não retornou, usar pool local como fallback
-                const poolUnused = await selectQuestionsFromPool(temaAtual, 4);
-                if (poolUnused && poolUnused.length) {
-                    perguntasDinamicas = poolUnused.slice(0, 4);
-                    mostrarPergunta();
-                    return;
-                }
-
-                // Nenhuma pergunta disponível → ativa cooldown e mostra mensagem
-                localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
-                document.getElementById("fluxo").innerHTML = `
-                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                        <p>A Teca não conseguiu organizar os cartões agora. Tente novamente mais tarde.</p>
-                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo</button>
-                    </div>
-                `;
-
-            } catch (e) {
-                console.error('Erro Fluxo (fallback):', e);
-                localStorage.setItem(cooldownKey, (Date.now() + 300000).toString());
-                document.getElementById("fluxo").innerHTML = `
-                    <div style="text-align:center; border: 1px dashed #30363d; padding: 20px; border-radius: 8px;">
-                        <p>Ocorreu um erro ao organizar os cartões. Tente novamente mais tarde.</p>
-                        <button onclick="iniciarFluxo(1)" style="width:auto; padding: 10px 20px;">Tentar de novo</button>
-                    </div>
-                `;
-            } finally {
-                carregandoPerguntas = false;
-            }
-        }
-
-        function mostrarPergunta() {
-            const pObj = perguntasDinamicas[etapa];
-            const perguntaTexto = pObj ? pObj.pergunta : '';
-            const marca = (pObj && pObj.source === 'ai') ? '* ' : '';
-
-            document.getElementById("fluxo").innerHTML = `
-                <span class="step-label">Pergunta ${etapa + 1} de ${perguntasDinamicas.length}</span>
-                <p>${marca}${perguntaTexto}</p>
-                <textarea id="respostaAtual" rows="4" placeholder="Digite sua resposta cientista..."></textarea>
-                <button type="button" onclick="proximaPergunta()">Próxima</button>
-            `;
-            const respostaAtual = document.getElementById('respostaAtual');
-            if (respostaAtual && !respostaAtual.dataset.bound) {
-                respostaAtual.dataset.bound = '1';
-                respostaAtual.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) {
-                        e.preventDefault();
-                        proximaPergunta();
-                    }
-                });
-            }
-        }
-
-        function proximaPergunta() {
-            const resposta = document.getElementById("respostaAtual").value.trim();
-
-            if (!resposta) {
-                alert("Responda antes de continuar.");
-                return;
-            }
-
-            const pObj = perguntasDinamicas[etapa];
-            const perguntaTexto = pObj ? pObj.pergunta : perguntasDinamicas[etapa];
-
-            respostas.push({ pergunta: perguntaTexto, resposta });
-
-            // marcar como usada no pool
-            try { markPerguntaUsedInPool(temaAtual || document.getElementById('tema').value, perguntaTexto); } catch (e) { }
-
-            etapa++;
-
-            if (etapa < perguntasDinamicas.length) {
-                mostrarPergunta();
-            } else {
-                finalizarFluxo();
-            }
-        }
-
-        async function finalizarFluxo() {
-            const resumo = respostas.map((r, i) => `
-        <div class="admin-row">
-          <strong>${i + 1}. ${r.pergunta}</strong><br>
-          ${r.resposta}
-        </div>
-      `).join('');
-
-            document.getElementById("fluxo").innerHTML = `
-        <h3>Relatório estruturado 🔬</h3>
-        <p>A Professora Teca está analisando suas respostas...</p>
-        ${resumo}
-      `;
-
-            try {
-                const docRef = respostas.map((r, i) => `(Pergunta ${i + 1}): ${r.pergunta} - (Resposta do Aluno ${i + 1}): ${r.resposta}`).join(' | ');
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: `[SISTEMA_ANALISE] Respostas do aluno:\n${docRef}`, nome: nomeTeca })
-                });
-                const data = await res.json();
-
-                let analise = "";
-                if (data.result) {
-                    analise = `
-                        <div style="background: rgba(0,212,255,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 20px;">
-                            <strong>👩‍🏫 Análise final da Teca:</strong><br/>
-                            <p style="margin-top: 10px; font-size: 14px;">${data.result}</p>
-                        </div>
-                    `;
-                }
-
-                document.getElementById("fluxo").innerHTML = `
-                    <h3>Relatório pronto</h3>
-                    ${resumo}
-                    ${analise}
-                    <p style="margin-top: 20px; font-weight: bold;">Deseja enviar seu relatório finalizado?</p>
-                `;
-            } catch (e) {
-                document.getElementById("fluxo").innerHTML = `
-                    <h3>Relatório pronto</h3>
-                    ${resumo}
-                    <p style="margin-top: 20px; font-weight: bold;">Deseja enviar seu relatório finalizado?</p>
-                `;
-            }
-
-            document.getElementById("btn-save").classList.remove("hidden");
-        }
-
-        // ---------------- Admin helpers (Supabase persistence, fallback local) ----------------
-        function numbersKey() { return 'teca_numbers'; }
-        async function fetchNumbersFromDB() {
-            try {
-                if (window._supabase) {
-                    const { data, error } = await _supabase.from('contacts').select('phone').order('created_at', { ascending: false });
-                    if (!error && data) return data.map(d => d.phone);
-                }
-            } catch (e) { console.warn('fetchNumbersFromDB failed', e); }
-            // No DB available: if admin mode, inform the admin that Supabase is required
-            if (isAdminMode()) {
-                console.error('Supabase não disponível no modo admin. Configure SUPABASE para persistência.');
-                return [];
-            }
-            try { return JSON.parse(localStorage.getItem(numbersKey()) || '[]'); } catch (e) { return []; }
-        }
-
-        async function getNumbers() { return await fetchNumbersFromDB(); }
-
-        async function saveNumberToDB(phone) {
-            try {
-                if (window._supabase) {
-                    const { error } = await _supabase.from('contacts').insert({ phone, created_at: new Date().toISOString() });
-                    if (!error) return true;
-                }
-            } catch (e) { console.warn('saveNumberToDB failed', e); }
-            // não deve cair no fallback quando estamos em modo admin
-            if (isAdminMode()) {
-                alert('Operação requer Supabase no modo admin. Número não salvo.');
-                return false;
-            }
-            try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]'); list.unshift(phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
-        }
-
-        async function removeNumberFromDB(phone) {
-            try {
-                if (window._supabase) {
-                    const { data, error } = await _supabase.from('contacts').select('id').eq('phone', phone).limit(1);
-                    if (!error && data && data[0]) { await _supabase.from('contacts').delete().eq('id', data[0].id); return true; }
-                }
-            } catch (e) { console.warn('removeNumberFromDB failed', e); }
-            if (isAdminMode()) { alert('Operação requer Supabase no modo admin. Número não removido.'); return false; }
-            try { const list = JSON.parse(localStorage.getItem(numbersKey()) || '[]').filter(x => x !== phone); localStorage.setItem(numbersKey(), JSON.stringify(list)); return true; } catch (e) { return false; }
-        }
-
-        async function addNumber() {
-            const v = document.getElementById('new-number').value.trim();
-            if (!v) return alert('Informe um número.');
-            const list = await getNumbers();
-            if (list.includes(v)) return alert('Número já cadastrado.');
-            const ok = await saveNumberToDB(v);
-            if (ok) { document.getElementById('new-number').value = ''; await renderNumbers(); } else alert('Falha ao salvar número.');
-        }
-
-        async function removeNumber(n) { if (!confirm('Remover número?')) return; await removeNumberFromDB(decodeURIComponent(n)); await renderNumbers(); }
-
-        async function renderNumbers() {
-            const container = document.getElementById('numbers-list'); if (!container) return; const list = await getNumbers(); if (!list.length) { container.innerHTML = '<p style="color:#8b949e">Nenhum número cadastrado.</p>'; return; }
-            container.innerHTML = list.map(n => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="flex:1">${n}</div><button onclick="removeNumber('${encodeURIComponent(n)}')" style="width:80px;background:#333;color:#fff">Remover</button></div>`).join('');
-        }
-
-        // Activities persisted in Supabase (fallback to localStorage)
-        function activitiesKey() { return 'teca_activities'; }
-        async function fetchActivitiesFromDB() {
-            try {
-                if (window._supabase) {
-                    const { data, error } = await _supabase.from('activities').select('*').order('created_at', { ascending: false });
-                    if (!error && data) return data.map(a => ({ id: a.id, title: a.title, desc: a.description, theme: a.theme, expected: a.expected_responses || 1, attachments: a.attachments || [], responses: a.responses || [], createdAt: a.created_at, startedAt: a.started_at, progress: a.progress || 0, status: a.status || 'rascunho', winner: a.winner || null, sent_at: a.sent_at }));
-                }
-            } catch (e) { console.warn('fetchActivitiesFromDB failed', e); }
-            // Se estamos em modo admin, não devíamos depender de localStorage
-            if (isAdminMode()) {
-                console.error('Supabase não disponível no modo admin. Configure SUPABASE para persistência de atividades.');
-                return [];
-            }
-            try { return JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); } catch (e) { return []; }
-        }
-
-        async function getActivities() { return await fetchActivitiesFromDB(); }
-
-        async function saveActivityToDB(act) {
-            try {
-                if (window._supabase) {
-                    const payload = { title: act.title, description: act.desc, theme: act.theme, expected_responses: act.expected, attachments: act.attachments || [], status: act.status || 'rascunho', created_at: act.createdAt ? new Date(act.createdAt).toISOString() : new Date().toISOString(), started_at: act.startedAt ? new Date(act.startedAt).toISOString() : null, progress: act.progress || 0, winner: act.winner || null, sent_at: act.sent_at || null };
-                    if (!act.id || act.id.toString().startsWith('act_')) {
-                        const { data, error } = await _supabase.from('activities').insert(payload).select(); if (!error && data && data[0]) return data[0];
-                    } else {
-                        const { error } = await _supabase.from('activities').update(payload).eq('id', act.id); if (!error) return act;
-                    }
-                }
-            } catch (e) { console.warn('saveActivityToDB failed', e); }
-            // não fazer fallback para localStorage quando em modo admin
-            if (isAdminMode()) {
-                alert('Operação requer Supabase no modo admin. Atividade não salva.');
-                return act;
-            }
-            try { const list = JSON.parse(localStorage.getItem(activitiesKey()) || '[]'); if (act.id) { const idx = list.findIndex(x => x.id === act.id); if (idx >= 0) list[idx] = act; else list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } else { act.id = 'act_' + Date.now(); list.unshift(act); localStorage.setItem(activitiesKey(), JSON.stringify(list)); return act; } } catch (e) { return act; }
-        }
-
-        async function saveOne(act) {
-            await saveActivityToDB(act);
-            await renderActivities();
-            await renderTasks();
-        }
-
-        async function improveActivityDescription() {
-            const descEl = document.getElementById('act-desc');
-            if (!descEl) return;
-            const original = descEl.value.trim();
-            if (!original) return alert('Digite a descrição da atividade antes de pedir a IA.');
-            const status = document.getElementById('description-ai-status');
-            status.innerText = 'Ajustando com IA...';
-            try {
-                const prompt = `Você é a Professora Teca, mas está ajudando o administrador a melhorar uma atividade escolar. Reescreva a descrição abaixo para ficar clara, objetiva, acolhedora e adequada para estudantes. Não mude o objetivo da atividade. Não invente exigências novas. Organize em:\n1. O que fazer\n2. Como responder\n3. O que será observado\n\nTexto original:\n${original}\n\nRetorne apenas o texto final da atividade.`;
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, nome: 'admin', preferredModels: obterModelosParaUso() })
-                });
-                const data = await res.json();
-                if (data.result) {
-                    descEl.value = data.result.trim();
-                    status.innerText = 'Descrição atualizada com IA.';
-                } else {
-                    status.innerText = 'Falha ao melhorar a descrição.';
-                    alert('Erro IA: ' + (data.error || 'sem resposta.'));
-                }
-            } catch (e) {
-                status.innerText = 'Erro ao chamar a IA.';
-                alert('Falha ao melhorar a descrição: ' + e.message);
-            } finally {
-                setTimeout(() => { if (status.innerText.includes('IA')) status.innerText = ''; }, 5000);
-            }
-        }
-
-        async function createActivity() {
-            const title = document.getElementById('act-title').value.trim();
-            const desc = document.getElementById('act-desc').value.trim();
-            const theme = document.getElementById('act-theme').value.trim() || 'geral';
-            const expected = parseInt(document.getElementById('act-expected').value) || 1;
-            if (!title) return alert('Título obrigatório');
-            const fileInput = document.getElementById('act-attachment');
-            const activity = { id: 'act_' + Date.now(), title, desc, theme, expected, numbers: await getNumbers(), attachments: [], responses: [], createdAt: Date.now(), startedAt: null, progress: 0, winner: null, status: 'rascunho' };
-            if (fileInput && fileInput.files && fileInput.files[0]) {
-                const f = fileInput.files[0];
-                try { const uploaded = await uploadFileWithFallback(f); activity.attachments.push(uploaded); } catch (e) { console.warn('attachment upload failed', e); }
-            }
-            await saveActivityToDB(activity); await renderActivities(); renderTaskStates(); clearActivityForm();
-        }
-
-        function clearActivityForm() { document.getElementById('act-title').value = ''; document.getElementById('act-desc').value = ''; document.getElementById('act-theme').value = ''; document.getElementById('act-expected').value = ''; document.getElementById('act-attachment').value = ''; }
-
-        async function renderActivities() { const container = document.getElementById('activities-list'); if (!container) return; const list = await getActivities(); if (!list.length) { container.innerHTML = '<p style="color:var(--muted)">Nenhuma atividade criada.</p>'; return; } container.innerHTML = list.map(act => { const created = act.createdAt ? new Date(act.createdAt).toLocaleString() : '—'; const started = act.startedAt ? new Date(act.startedAt).toLocaleString() : '—'; return ` <div class="admin-row"> <strong>${act.title}</strong> <div style="margin-top:6px;"><small>${act.desc}</small></div><div style="margin-top:10px; color:var(--muted); font-size:13px;">Criada em: ${created} • Iniciada: ${started} • Status: <strong>${act.status || 'rascunho'}</strong> • Progresso: ${act.progress}%</div><div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;"> <button onclick="openActivity('${act.id}')">Ver / Detalhes</button> <button onclick="sendActivityAsLink('${act.id}')">Enviar atividade</button> <button onclick="deleteActivity('${act.id}')" style="background:#b31">Remover</button> </div> </div>`; }).join(''); }
-
-        async function deleteActivity(id) {
-            if (!confirm('Remover atividade?')) return;
-            try {
-                if (window._supabase) {
-                    await _supabase.from('activities').delete().eq('id', id);
-                } else if (isAdminMode()) {
-                    alert('Operação requer Supabase no modo admin. Configure SUPABASE para remover atividades.');
-                    return;
-                }
-            } catch (e) { console.warn('deleteActivity DB failed', e); }
-
-            // atualizar lista local apenas se não estivermos forçando DB
-            if (!isAdminMode()) {
-                const list = (await getActivities()).filter(a => a.id !== id);
-                localStorage.setItem(activitiesKey(), JSON.stringify(list));
-            }
-            await renderActivities();
-        }
-
-        async function openActivity(id) {
-            const acts = await getActivities(); const act = acts.find(a => a.id === id); if (!act) return alert('Atividade não encontrada'); const details = `Atividade: ${act.title}\nDescrição: ${act.desc}\nRespostas salvas: ${act.responses ? act.responses.length : 0}`; if (!act.startedAt) { act.startedAt = Date.now(); await saveActivityToDB(act); } const choice = prompt(details + '\n\nEscolha: (1)Adicionar resposta manual (2)Analisar resposta index (ex: 0) (3)Ver análise (4)Marcar vencedor (Isis/Maya)\nDigite opção:'); if (!choice) return; if (choice.startsWith('1')) return adminAddResponse(id); if (choice.startsWith('2')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; analyzeResponse(id, idx); return; } if (choice.startsWith('3')) { const idx = parseInt(prompt('Índice da resposta (0-based):')) || 0; viewAnalysis(id, idx); return; } if (choice.startsWith('4')) { const w = prompt('Quem ganhou? (Isis ou Maya)'); if (w) { act.winner = w; await saveActivityToDB(act); } return; }
-            async function saveOne(act) { await saveActivityToDB(act); await renderActivities(); }
-
-            async function adminAddResponse(activityId) {
-                const acts = await getActivities();
-                const act = acts.find(a => a.id === activityId);
-                if (!act) return;
-                const autor = prompt('Nome do respondente (Isis/Maya/Outro):') || 'anônimo';
-                const texto = prompt('Resposta em texto (deixe vazio se for só imagem):') || '';
-                const resp = { id: 'r_' + Date.now(), autor, texto, imagens: [], createdAt: Date.now(), analysis: null, submitted_at: Date.now() };
-                act.responses = act.responses || [];
-                act.responses.push(resp);
-                act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
-                if (!act.startedAt) act.startedAt = Date.now();
-
-                await saveOne(act);
-
-                // tentar persistir como submission separada no Supabase
-                try {
-                    if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
-                        const payload = {
-                            activity_id: act.id,
-                            student_name: autor,
-                            response_text: texto || null,
-                            attachment_url: null,
-                            status: 'enviada',
-                            submitted_at: new Date(resp.submitted_at).toISOString()
-                        };
-                        const { data: ins, error } = await _supabase.from('activity_submissions').insert(payload).select();
-                        if (!error && ins && ins[0]) { resp.submission_id = ins[0].id; await saveOne(act); }
-                    }
-                } catch (e) { console.warn('adminAddResponse save submission failed', e); }
-
-                alert('Resposta adicionada. Use Abrir → Analisar para gerar avaliação IA.');
-            }
-
-            async function analyzeResponse(activityId, responseIndex) {
-                const acts = await getActivities();
-                const act = acts.find(a => a.id === activityId);
-                if (!act) return alert('Atividade não encontrada');
-                const resp = act.responses[responseIndex];
-                if (!resp) return alert('Resposta não encontrada');
-
-                try {
-                    const r = await fetch('/api/analisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity: act, response: resp }) });
-                    const data = await r.json();
-                    if (data.evaluation) {
-                        resp.analysis = data.evaluation;
-                        act.status = 'avaliada';
-                        await saveOne(act);
-
-                        // se houver submission_id, atualize a linha correspondente com a avaliação
-                        try {
-                            if (window._supabase && resp.submission_id) {
-                                await _supabase.from('activity_submissions').update({ ai_evaluation: resp.analysis, final_score: resp.analysis.nota_final || null, evaluated_at: new Date().toISOString(), status: 'avaliada' }).eq('id', resp.submission_id);
-                            } else if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
-                                // tentar localizar submission por activity_id e submitted_at
-                                const { data: found } = await _supabase.from('activity_submissions').select('id').eq('activity_id', act.id).eq('submitted_at', new Date(resp.submitted_at).toISOString()).limit(1);
-                                if (found && found[0]) {
-                                    await _supabase.from('activity_submissions').update({ ai_evaluation: resp.analysis, final_score: resp.analysis.nota_final || null, evaluated_at: new Date().toISOString(), status: 'avaliada' }).eq('id', found[0].id);
-                                }
-                            }
-                        } catch (e) { console.warn('Failed to update submission with analysis', e); }
-
-                        alert('Análise salva.');
-                    } else {
-                        alert('Falha análise: ' + (data.error || JSON.stringify(data)));
-                    }
-                } catch (e) { alert('Erro ao analisar: ' + e.message); }
-            }
-
-            function viewAnalysis(activityId, responseIndex) {
-                const act = getActivities().find(a => a.id === activityId); if (!act) return; const resp = act.responses[responseIndex]; if (!resp) return alert('Resposta não encontrada'); if (!resp.analysis) return alert('Nenhuma análise disponível');
-                const pretty = JSON.stringify(resp.analysis, null, 2); const w = window.open('', '_blank'); w.document.write(`<pre>${pretty}</pre>`);
-            }
-
-            function sendWhatsApp(activityId) {
-                const act = getActivities().find(a => a.id === activityId); if (!act) return; const numbers = act.numbers && act.numbers.length ? act.numbers : getNumbers(); if (!numbers || !numbers.length) return alert('Nenhum número cadastrado para envio.');
-                const text = encodeURIComponent(`Atividade: ${act.title}\n${act.desc}\nResponda por texto ou envie foto.`);
-                // abrir uma aba por número (admin confirms)
-                if (!confirm('Abrir o WhatsApp Web para cada número?')) return;
-                numbers.forEach(n => { const url = `https://wa.me/${n.replace(/[^0-9+]/g, '')}?text=${text}`; window.open(url, '_blank'); });
-            }
-
-            // Render task states on initial screen (frente dos nomes)
-            async function renderTaskStates() {
-                const list = await getActivities(); const container = document.getElementById('tela-chamada'); if (!container) return; const areaId = 'task-states-area'; let area = document.getElementById(areaId); if (!area) { area = document.createElement('div'); area.id = areaId; area.style.marginTop = '18px'; container.appendChild(area); }
-                if (!list.length) { area.innerHTML = ''; return; }
-                // Mostrar primeiro 5 atividades por ordem criada
-                const shown = list.slice(0, 5);
-                area.innerHTML = '<h4 style="margin-top:8px;color:var(--primary);">Atividades</h4>' + shown.map(a => {
-                    const started = a.startedAt ? new Date(a.startedAt).toLocaleDateString() : '--/--';
-                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);"><div><strong>${a.title}</strong><br><small>Iniciado: ${started}</small></div><div style="text-align:right">${a.progress}%<br><small>${a.winner ? 'Vencedor: ' + a.winner : ''}</small></div></div>`;
-                }).join('');
-            }
-
-            // Inicialização admin
-            function carregarAdmin() { renderNumbers(); renderActivities(); renderAdminSettings(); }
-
-            function showAdminTab(tab) {
-                document.querySelectorAll('.admin-tab-pane').forEach(el => el.classList.add('hidden'));
-                const pane = document.getElementById(`admin-tab-${tab}`);
-                if (pane) pane.classList.remove('hidden');
-                document.querySelectorAll('.admin-tabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
-                if (tab === 'tasks') renderTasks();
-                if (tab === 'settings') renderAdminSettings();
-            }
-
-            window.addEventListener('DOMContentLoaded', () => { if (isAdminMode()) carregarAdmin(); renderTaskStates(); });
-
-            // --- Helpers de rota / atividade pública ---
-            function getQueryParam(name) { const url = new URL(window.location.href); return url.searchParams.get(name); }
-
-            function showUserLogs(user) {
-                const grouped = window._adminGroupedLogs || {};
-                const container = document.getElementById('admin-logs');
-                if (!container) return;
-                const list = grouped[user] || [];
-                if (user === 'All') {
-                    const users = Object.keys(grouped);
-                    container.innerHTML = users.map(u => ` <h4>${u} (${(grouped[u] || []).length})</h4> ${(grouped[u] || []).length ? (grouped[u] || []).map(l => ` <div class="admin-row"><strong>${l.nome || ''} - ${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('') : '<p>Nenhuma interação registrada.</p>'} `).join('');
-                    return;
-                }
-                if (!list.length) {
-                    container.innerHTML = `<p>Nenhuma interação registrada para ${user}.</p>`;
-                    return;
-                }
-                container.innerHTML = list.map(l => ` <div class="admin-row"><strong>${new Date(l.data).toLocaleString()}</strong><br><em>Pergunta/seleção:</em> ${l.pergunta}<br><em>Resposta:</em> ${l.resposta}</div>`).join('');
-            }
-
-        function getSavedTheme() {
-            try { return localStorage.getItem('teca_theme') || 'light'; }
-            catch (e) { return 'light'; }
-        }
-        window.getSavedTheme = window.getSavedTheme || getSavedTheme;
-        window.applyTheme = window.applyTheme || function(theme) {
-            document.body.classList.remove('theme-light', 'theme-dark');
-            document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
-            try { localStorage.setItem('teca_theme', theme); } catch (e) { }
-        };
-        window.toggleTheme = window.toggleTheme || function() {
-            const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-            window.applyTheme(current === 'dark' ? 'light' : 'dark');
-        };
-
-        function initHomeButtons() {
-            const btnIsis = document.getElementById('btn-isis');
-            const btnMaya = document.getElementById('btn-maya');
-            if (btnIsis && !btnIsis.dataset.bound) {
-                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
-                btnIsis.dataset.bound = '1';
-            }
-            if (btnMaya && !btnMaya.dataset.bound) {
-                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
-                btnMaya.dataset.bound = '1';
-            }
-        }
-        window.initHomeButtons = initHomeButtons;
-
-        window.falarComIA = async function falarComIA(prompt) {
-            const status = document.getElementById('ai-status');
-            const conteudo = document.getElementById('side-conteudo');
-
-            if (!conteudo) return;
-
-            if (status) status.style.display = 'block';
-            conteudo.innerText = 'Consultando...';
-
-            try {
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: `[SISTEMA_EXPLICACAO] ${prompt}`,
-                        nome: nomeTeca || '',
-                        preferredModels: typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : []
-                    })
-                });
-
-                const data = await res.json();
-
-                if (data.result) {
-                    conteudo.innerText = data.result;
-                } else {
-                    conteudo.innerText = 'A Teca não achou esse cartão na estante. Tente outra palavra 📚';
-                }
-            } catch (e) {
-                console.error('[Teca explicação]', e);
-                conteudo.innerText = 'A Teca derrubou alguns livros. Tente de novo em instantes 📚';
-            } finally {
-                if (status) status.style.display = 'none';
-            }
-        };
-
-        let ultimaSelecao = '';
-        let ultimoHorario = 0;
-
-        function getSelectionContainer() {
-            const sel = window.getSelection ? window.getSelection() : null;
-            if (!sel || !sel.rangeCount) return null;
-            const range = sel.getRangeAt(0);
-            const node = range.commonAncestorContainer;
-            return node && node.nodeType === 1 ? node : node ? node.parentElement : null;
-        }
-
-        function isEditableSelectionTarget() {
-            const container = getSelectionContainer();
-            return !!(container && container.closest && container.closest('input, textarea, select, button, [contenteditable="true"]'));
-        }
-
-        window.analisarSelecao = function analisarSelecao() {
-            if (typeof isAdminMode === 'function' && isAdminMode()) return;
-            if (isEditableSelectionTarget()) return;
-            const sel = window.getSelection().toString().trim();
-            if (!sel || sel.length < 2 || sel.length > 120) return;
-            const agora = Date.now();
-            if (sel === ultimaSelecao && (agora - ultimoHorario) < 1500) return;
-            ultimaSelecao = sel;
-            ultimoHorario = agora;
-            console.log('[Teca seleção]', sel);
-            if (typeof window.falarComIA !== 'function') {
-                console.error('[Teca seleção] falarComIA não definida');
-                return;
-            }
-
-            window.falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: "${sel}"`);
-        };
-
-        function initSelectionListeners() {
-            if (window.__tecaSelectionListenersBound) return;
-            window.__tecaSelectionListenersBound = true;
-            document.addEventListener('mouseup', () => window.analisarSelecao());
-            document.addEventListener('dblclick', () => window.analisarSelecao());
-            document.addEventListener('touchend', () => setTimeout(() => window.analisarSelecao(), 500));
-        }
-
-        async function loadPublicActivityIfAny() {
-                const aid = getQueryParam('atividade');
-                if (!aid) return;
-                const acts = await getActivities();
-                const act = acts.find(a => a.id === aid);
-                if (!act) { document.getElementById('atividade-desc').innerText = 'Atividade não encontrada ou link inválido.'; irPara('tela-atividade'); return; }
-                if (!act.startedAt) {
-                    act.startedAt = Date.now();
-                    if (act.status === 'rascunho') act.status = 'enviada';
-                    await saveOne(act);
-                }
-                // mostrar conteúdo
-                document.getElementById('atividade-title').innerText = act.title;
-                document.getElementById('atividade-desc').innerText = act.desc;
-                const attaches = document.getElementById('atividade-attachments'); attaches.innerHTML = '';
-                if (act.attachments && act.attachments.length) { act.attachments.forEach(att => { const a = document.createElement('a'); a.href = att.data || att.url; a.target = '_blank'; a.innerText = att.name || 'Anexo'; attaches.appendChild(a); attaches.appendChild(document.createElement('br')); }); }
-                irPara('tela-atividade');
-            }
-
-            // Upload com tentativa no Supabase e fallback para dataURL
-            async function uploadFileWithFallback(file) {
-                if (!file) return null;
-                const MAX = 5 * 1024 * 1024; // 5MB
-                if (file.size > MAX) throw new Error('Arquivo muito grande (>5MB)');
-
-                // tentar supabase (requere bucket 'attachments' configurado)
-                try {
-                    if (window._supabase && _supabase.storage) {
-                        const path = `attachments/${Date.now()}_${file.name}`;
-                        const { error } = await _supabase.storage.from('attachments').upload(path, file);
-                        if (!error) {
-                            const publicUrl = _supabase.storage.from('attachments').getPublicUrl(path).publicUrl;
-                            return { url: publicUrl, name: file.name };
-                        }
-                    }
-                } catch (e) { console.warn('Supabase upload falhou, fallback:', e); }
-
-                // fallback: dataURL
-                return await new Promise((resolve, reject) => {
-                    const r = new FileReader(); r.onload = () => resolve({ data: r.result, name: file.name }); r.onerror = () => reject(new Error('Falha leitura arquivo')); r.readAsDataURL(file);
-                });
-            }
-
-            async function submitActivityResponse() {
-                const aid = getQueryParam('atividade');
-                if (!aid) return alert('Atividade inválida');
-                const act = (await getActivities()).find(a => a.id === aid); if (!act) return alert('Atividade não encontrada');
-                const nome = (sessionStorage.getItem('nomeTeca') || '').trim();
-                if (!nome) return alert('Escolha Isis ou Maya para continuar.');
-                const texto = (document.getElementById('resp-text').value || '').trim();
-                const fileInput = document.getElementById('resp-file');
-                const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-                if (!texto && !file) return alert('Envie texto ou anexo.');
-                if (file && !file.type.startsWith('image/')) return alert('Apenas imagens são aceitas como anexo.');
-                if (file && file.size > 5 * 1024 * 1024) return alert('Anexo muito grande. Limite de 5MB.');
-
-                const resp = { id: 'r_' + Date.now(), autor: nome, texto, imagens: [], createdAt: Date.now(), submitted_at: Date.now(), analysis: null };
-
-                if (file) {
-                    try {
-                        const uploaded = await uploadFileWithFallback(file);
-                        resp.imagens.push(uploaded);
-                    } catch (e) { return alert('Erro no upload: ' + e.message); }
-                }
-
-                act.responses = act.responses || [];
-                if (!act.startedAt) act.startedAt = Date.now();
-                act.responses.push(resp);
-                act.progress = Math.min(100, Math.round((act.responses.length / (act.expected || 1)) * 100));
-                act.status = act.responses.length >= (act.expected || 1) ? 'finalizada' : 'em execução';
-                await saveOne(act);
-
-                // Tentar gravar submissão separada na tabela `activity_submissions` quando activity estiver no DB
-                try {
-                    if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
-                        const payload = {
-                            activity_id: act.id,
-                            student_name: nome,
-                            response_text: texto || null,
-                            attachment_url: resp.imagens && resp.imagens[0] ? (resp.imagens[0].url || resp.imagens[0].data || null) : null,
-                            status: 'enviada',
-                            submitted_at: new Date(resp.submitted_at).toISOString()
-                        };
-                        const { data: ins, error: insErr } = await _supabase.from('activity_submissions').insert(payload).select();
-                        if (!insErr && ins && ins[0]) {
-                            resp.submission_id = ins[0].id;
-                            // salvar referência localmente
-                            await saveOne(act);
-                        }
-                    }
-                } catch (e) { console.warn('save submission failed', e); }
-
-                document.getElementById('atividade-feedback').innerText = 'Resposta enviada com sucesso. Obrigada!';
-
-                // chamada de avaliação IA (pode consumir tokens) — executar, salvar resultado
-                try { const idx = act.responses.findIndex(r => r.id === resp.id); if (idx >= 0) await analyzeResponse(act.id, idx); } catch (e) { console.warn('Avaliação automática falhou', e); }
-            }
-
-            // Gerar link público e marcar como enviada
-            function generateActivityLink(activityId) { const url = `${location.origin}${location.pathname}?atividade=${activityId}`; return url; }
-
-            async function sendActivityAsLink(activityId) {
-                const act = (await getActivities()).find(a => a.id === activityId); if (!act) return; const url = generateActivityLink(activityId);
-                // salvar link meta local e no Supabase se disponível
-                const linksKey = 'teca_activity_links';
-                const links = JSON.parse(localStorage.getItem(linksKey) || '[]');
-                links.push({ id: 'l_' + Date.now(), activityId, url, sentAt: Date.now() }); localStorage.setItem(linksKey, JSON.stringify(links));
-                act.status = 'enviada'; act.sent_at = Date.now();
-                if (window._supabase && act.id && !act.id.toString().startsWith('act_')) {
-                    try {
-                        await _supabase.from('activity_links').insert([{ activity_id: act.id, url, sent_at: new Date().toISOString(), status: 'sent' }]);
-                    } catch (e) { console.warn('Failed to save activity link', e); }
-                }
-                await saveOne(act);
-                if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(url).catch(() => { });
-                alert('Link copiado para a área de transferência e atividade marcada como enviada.');
-                renderTaskStates();
-            }
-
-            // Render lista centralizada de tarefas/submissões para admin
-            async function renderTasks() {
-                const container = document.getElementById('admin-tasks-container'); if (!container) return; const acts = await getActivities();
-                const rows = [];
-                acts.forEach(act => {
-                    (act.responses || []).forEach(r => {
-                        rows.push({ activity: act.title, activityId: act.id, student: r.autor, status: r.analysis ? 'avaliada' : (act.status || 'enviada'), sentAt: act.sent_at, startedAt: act.startedAt, submittedAt: r.submitted_at, evaluatedAt: r.analysis ? r.analysis.evaluated_at || Date.now() : null, score: r.analysis ? (r.analysis.nota_final || null) : null, resumo: r.analysis ? (r.analysis.resumo_admin || '') : '' });
-                    });
-                });
-                if (!rows.length) { container.innerHTML = '<p style="color:var(--muted)">Nenhuma tarefa enviada ainda.</p>'; return; }
-                container.innerHTML = '<h3>Lista de Tarefas / Submissões</h3>' + rows.map(r => {
-                    return `<div class="admin-row"><strong>${r.activity}</strong><br>${r.student} • Status: ${r.status} • Nota: ${r.score || '—'}<br><small>Enviada: ${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'} • Início: ${r.startedAt ? new Date(r.startedAt).toLocaleString() : '—'} • Avaliada: ${r.evaluatedAt ? new Date(r.evaluatedAt).toLocaleString() : '—'}</small><br>${r.resumo ? `<div style="margin-top:8px; color:var(--muted);">Resumo IA: ${r.resumo}</div>` : ''}<div style="margin-top:8px;"><button onclick="window.location='?atividade='+encodeURIComponent('${r.activityId}')">Abrir atividade</button></div></div>`;
-                }).join('');
-            }
-
-            // Atualizar renderizações periódicas
-            window.addEventListener('DOMContentLoaded', () => { loadPublicActivityIfAny(); renderTasks(); });
-
-            async function salvar() {
-                const btn = document.getElementById('btn-save');
-
-                if (!temaAtual || respostas.length === 0) {
-                    alert('Escolha um tema e responda as perguntas.');
-                    return;
-                }
-
-                btn.disabled = true;
-                btn.innerText = 'Sincronizando...';
-
-                const dados = {
-                    area: temaAtual,
-                    observacao: respostas[0]?.resposta || '',
-                    hipotese: respostas[1]?.resposta || '',
-                    conclusao: respostas
-                        .slice(2)
-                        .map(r => `${r.pergunta} ${r.resposta}`)
-                        .join(' | ')
-                };
-
-                const { error } = await _supabase
-                    .from('relatorios_cientificos')
-                    .insert([dados]);
-
-                if (!error) {
-                    alert('Protocolo enviado com sucesso para os arquivos da Teca!');
-                    location.reload();
-                } else {
-                    alert('A mesa da Teca está muito bagunçada para organizar seu relatório agora. Tente de novo em alguns segundos!');
-                    btn.disabled = false;
-                    btn.innerText = 'Finalizar Relatório';
-                }
-            }
-
-            async function renderAdminSettings() {
-                const { data } = await _supabase
-                    .from('relatorios_cientificos')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                const relatorios = (data || []).map(r => `
-        <div class="admin-row">
-          <strong>${new Date(r.created_at).toLocaleString()} - ${r.area}</strong><br>
-          <em>Observação:</em> ${r.observacao}<br>
-          <em>Hipótese:</em> ${r.hipotese}<br>
-          <em>Conclusão:</em> ${r.conclusao}
-        </div>
-      `).join('');
-
-                const logs = JSON.parse(localStorage.getItem('teca_logs') || '[]');
-
-                // Agrupar logs por usuário (Isis / Maya / Outros)
-                const users = ['Isis', 'Maya'];
-                const grouped = {};
-                users.forEach(u => grouped[u] = []);
-                grouped['Outros'] = [];
-
-                logs.forEach(l => {
-                    const name = l.nome || 'Anonimo';
-                    if (users.includes(name)) grouped[name].push(l);
-                    else grouped['Outros'].push(l);
-                });
-
-                const blocoPorUsuario = users.map(u => `
-                <h4>${u} (${grouped[u].length})</h4>
-                ${grouped[u].length ? grouped[u].map(l => `
-                    <div class="admin-row">
-                        <strong>${new Date(l.data).toLocaleString()}</strong><br>
-                        <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                        <em>Resposta:</em> ${l.resposta}
-                    </div>
-                `).join('') : '<p>Nenhuma interação registrada.</p>'}
-            `).join('') + `
-            <h4>Outros (${grouped['Outros'].length})</h4>
-            ${grouped['Outros'].length ? grouped['Outros'].map(l => `
-                <div class="admin-row">
-                    <strong>${l.nome}</strong> - ${new Date(l.data).toLocaleString()}<br>
-                    <em>Pergunta/seleção:</em> ${l.pergunta}<br>
-                    <em>Resposta:</em> ${l.resposta}
-                </div>
-            `).join('') : '<p>Nenhuma interação registrada.</p>'}
-            `;
-
-                // Configurações do admin (senha) e senhas por usuário
-                const currentAdminPass = getAdminPassword();
-                const userPasswords = getUserPasswords();
-
-                // Save grouped logs to global for tab rendering
-                window._adminGroupedLogs = grouped;
-
-                document.getElementById('admin-content').innerHTML = `
-        <h3>Configurações do Admin</h3>
-        <div style="border:1px dashed #30363d; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; gap:12px; align-items:center;">
-            <div style="flex:1;">
-                <label style="font-size:13px; color:#8b949e;">Senha Admin (padrão: dopj1982):</label>
-                <input id="admin-password" class="teca-input" type="password" value="${currentAdminPass}" style="margin-top:8px;">
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <button style="width:140px;" onclick="saveAdminPassword(document.getElementById('admin-password').value)">Salvar Admin</button>
-            </div>
-        </div>
-
-        <h3>Senhas por Usuário</h3>
-        <div style="display:flex; gap:12px; margin-bottom:16px;">
-            <div style="flex:1; border:1px dashed #30363d; padding:12px; border-radius:8px;">
-                <label style="font-size:13px; color:#8b949e;">Isis</label>
-                <input id="pass-Isis" class="teca-input" type="text" value="${userPasswords['Isis'] || ''}">
-                <button onclick="saveUserPassword('Isis', document.getElementById('pass-Isis').value)">Salvar Isis</button>
-            </div>
-            <div style="flex:1; border:1px dashed #30363d; padding:12px; border-radius:8px;">
-                <label style="font-size:13px; color:#8b949e;">Maya</label>
-                <input id="pass-Maya" class="teca-input" type="text" value="${userPasswords['Maya'] || ''}">
-                <button onclick="saveUserPassword('Maya', document.getElementById('pass-Maya').value)">Salvar Maya</button>
-            </div>
-        </div>
-
-        <h3>Relatórios enviados</h3>
-        ${relatorios || '<p>Nenhum relatório encontrado.</p>'}
-
-        <h3 style="margin-top:30px;">Interações com a Professora Teca</h3>
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <button style="width:120px;" onclick="showUserLogs('Isis')">Isis</button>
-            <button style="width:120px;" onclick="showUserLogs('Maya')">Maya</button>
-            <button style="width:120px;" onclick="showUserLogs('All')">Todos</button>
-        </div>
-        <div id="admin-logs">
-            ${blocoPorUsuario}
-        </div>
-      `;
-            }
-
-            if (new URLSearchParams(window.location.search).get('mode') === 'admin') {
-                // marcar body para CSS admin (oculta banner e sidebar) e iniciar admin
-                try { document.body.classList.add('admin-mode'); } catch (e) { }
-                irPara('tela-admin');
-                carregarAdmin();
-                showAdminTab('activities');
-            }
-        }
-    </script>
-
+  <script type="module" src="/src/app.js"></script>
 </body>
-
 </html>
