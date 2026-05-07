@@ -1232,6 +1232,69 @@
             const btnIsis = document.getElementById('btn-isis');
             const btnMaya = document.getElementById('btn-maya');
             if (btnIsis && !btnIsis.dataset.bound) {
+                btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
+                btnIsis.dataset.bound = '1';
+            }
+            if (btnMaya && !btnMaya.dataset.bound) {
+                btnMaya.addEventListener('click', () => window.openUserEntry('Maya'));
+                btnMaya.dataset.bound = '1';
+            }
+        }
+        window.initHomeButtons = initHomeButtons;
+
+        window.falarComIA = async function falarComIA(prompt) {
+            const status = document.getElementById('ai-status');
+            const conteudo = document.getElementById('side-conteudo');
+
+            if (!conteudo) return;
+
+            if (status) status.style.display = 'block';
+            conteudo.innerText = 'Consultando...';
+
+            try {
+                const res = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt,
+                        nome: nomeTeca || '',
+                        preferredModels: typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : []
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.result) {
+                    conteudo.innerText = data.result;
+                } else {
+                    conteudo.innerText = 'A Teca não achou esse cartão na estante. Tente outra palavra 📚';
+                }
+            } catch (e) {
+                console.error('[Teca explicação]', e);
+                conteudo.innerText = 'A Teca derrubou alguns livros. Tente de novo em instantes 📚';
+            } finally {
+                if (status) status.style.display = 'none';
+            }
+        };
+
+        window.analisarSelecao = function analisarSelecao() {
+            const sel = window.getSelection().toString().trim();
+            console.log('[Teca seleção]', sel);
+
+            if (typeof isAdminMode === 'function' && isAdminMode()) return;
+            if (!sel || sel.length < 2 || sel.length > 120) return;
+            if (typeof window.falarComIA !== 'function') {
+                console.error('[Teca seleção] falarComIA não definida');
+                return;
+            }
+
+            window.falarComIA(`[SISTEMA_EXPLICACAO] Explique de forma correta e simples: "${sel}"`);
+        };
+
+        function initHomeButtons() {
+            const btnIsis = document.getElementById('btn-isis');
+            const btnMaya = document.getElementById('btn-maya');
+            if (btnIsis && !btnIsis.dataset.bound) {
                 btnIsis.dataset.bound = '1';
                 btnIsis.addEventListener('click', () => window.openUserEntry('Isis'));
             }
