@@ -622,9 +622,6 @@
             const name = sessionStorage.getItem('nomeTeca');
             if (name) showUserBanner(name);
             initHomeButtons();
-            document.addEventListener('mouseup', window.analisarSelecao);
-            document.addEventListener('dblclick', window.analisarSelecao);
-            document.addEventListener('touchend', () => setTimeout(window.analisarSelecao, 500));
 
             const modalPassword = document.getElementById('modal-password');
             if (modalPassword && !modalPassword.dataset.bound) {
@@ -945,37 +942,6 @@
 
             document.getElementById("btn-save").classList.remove("hidden");
         }
-
-        window.falarComIA = async function falarComIA(prompt) {
-            const status = document.getElementById('ai-status');
-            const conteudo = document.getElementById('side-conteudo');
-
-            if (status) status.style.display = 'block';
-            if (conteudo) conteudo.innerText = 'Consultando...';
-
-            try {
-                const res = await fetch('/api/ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: `[SISTEMA_EXPLICACAO] ${prompt}`,
-                        nome: nomeTeca || '',
-                        preferredModels: typeof obterModelosParaUso === 'function' ? obterModelosParaUso() : undefined
-                    })
-                });
-
-                const data = await res.json().catch(() => ({}));
-                if (conteudo) {
-                    conteudo.innerHTML = data && data.result
-                        ? `<div class="side-box">${String(data.result).replace(/\n/g, '<br>')}</div>`
-                        : 'A Teca ficou sem palavras por um instante. Tente de novo.';
-                }
-            } catch (e) {
-                if (conteudo) conteudo.innerText = 'A Teca ficou sem palavras por um instante. Tente de novo.';
-            } finally {
-                if (status) status.style.display = 'none';
-            }
-        };
 
         // ---------------- Admin helpers (Supabase persistence, fallback local) ----------------
         function numbersKey() { return 'teca_numbers'; }
